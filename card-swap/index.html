@@ -260,10 +260,9 @@
    ───────────────────────────────────── */
 function elasticOut(t) {
   if (t === 0 || t === 1) return t;
-  const p = 0.9;          // period  (GSAP elastic.out(0.6,0.9) equivalent)
-  const a = 0.6;          // amplitude
-  const s = (p / (Math.PI * 2)) * Math.asin(1 / a);
-  return a * Math.pow(2, -10 * t) * Math.sin((t - s) * (Math.PI * 2) / p) + 1;
+  const p = 0.9;          // period  (matches GSAP elastic.out(0.6,0.9))
+  const s = p / 4;        // amplitude < 1 → clamp to 1, s = p/4
+  return Math.pow(2, -10 * t) * Math.sin((t - s) * (Math.PI * 2) / p) + 1;
 }
 
 function powerInOut(t) {
@@ -315,6 +314,20 @@ function ensureRAF() {
 }
 
 function tweenTo(target, to, dur, ease, delayMs, onComplete) {
+  // kill existing tweens on same target + overlapping properties (like GSAP)
+  const newKeys = Object.keys(to);
+  for (const existing of activeTweens) {
+    if (existing.target !== target) continue;
+    const existingKeys = Object.keys(existing.to);
+    const overlap = existingKeys.filter(k => newKeys.includes(k));
+    if (overlap.length > 0) {
+      if (overlap.length === existingKeys.length) {
+        activeTweens.delete(existing);
+      } else {
+        for (const k of overlap) { delete existing.to[k]; delete existing.from[k]; }
+      }
+    }
+  }
   const tw = {
     target, from: {}, to, dur, ease,
     start: performance.now() + (delayMs || 0),
