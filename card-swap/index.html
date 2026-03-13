@@ -277,15 +277,30 @@ function powerInOut(t) {
 const activeTweens = new Set();
 let rafId = null;
 
+function killOverlapping(tw) {
+  const newKeys = Object.keys(tw.to);
+  for (const existing of activeTweens) {
+    if (existing === tw || existing.target !== tw.target) continue;
+    const existingKeys = Object.keys(existing.to);
+    const overlap = existingKeys.filter(k => newKeys.includes(k));
+    if (overlap.length > 0) {
+      if (overlap.length === existingKeys.length) {
+        activeTweens.delete(existing);
+      } else {
+        for (const k of overlap) { delete existing.to[k]; delete existing.from[k]; }
+      }
+    }
+  }
+}
+
 function tick(now) {
   for (const tw of activeTweens) {
-    // skip if delay hasn't elapsed yet
     if (now < tw.start) continue;
 
-    // lazy-capture 'from' on first active tick so we get the current value,
-    // not the value at creation time (avoids jumps when chaining tweens)
+    // on first active tick: kill overlapping tweens, then capture current values
     if (!tw.captured) {
       tw.captured = true;
+      killOverlapping(tw);
       for (const k of Object.keys(tw.to)) tw.from[k] = tw.target[k];
     }
 
@@ -314,20 +329,6 @@ function ensureRAF() {
 }
 
 function tweenTo(target, to, dur, ease, delayMs, onComplete) {
-  // kill existing tweens on same target + overlapping properties (like GSAP)
-  const newKeys = Object.keys(to);
-  for (const existing of activeTweens) {
-    if (existing.target !== target) continue;
-    const existingKeys = Object.keys(existing.to);
-    const overlap = existingKeys.filter(k => newKeys.includes(k));
-    if (overlap.length > 0) {
-      if (overlap.length === existingKeys.length) {
-        activeTweens.delete(existing);
-      } else {
-        for (const k of overlap) { delete existing.to[k]; delete existing.from[k]; }
-      }
-    }
-  }
   const tw = {
     target, from: {}, to, dur, ease,
     start: performance.now() + (delayMs || 0),
@@ -445,8 +446,8 @@ function swap() {
   const frontIdx = order[0];
   const frontState = cardStates[frontIdx];
 
-  // Phase 1: drop front card
-  tweenTo(frontState, { y: frontState.y + 500 }, cfg.durDrop, ease, 0, null);
+  // Phase 1: drop front card (1000px to clear centered layout)
+  tweenTo(frontState, { y: frontState.y + 1000 }, cfg.durDrop, ease, 0, null);
 
   // Phase 2: promote remaining cards (overlapping with drop)
   const promoteDelay = cfg.durDrop * (1 - cfg.promoteOverlap);
