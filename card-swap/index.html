@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="dark light">
+<title>Card Swap</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Sans:wght@300;400;500&family=Playfair+Display:ital,wght@0,700;1,700&display=swap" rel="stylesheet">
+<style>
+  *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+
+  :root{
+    --bg:#0a0a0a;
+    --surface:#111;
+    --border:rgba(255,255,255,.08);
+    --accent:#c8956c;
+    --accent-dim:rgba(200,149,108,.15);
+    --text:#e8e4df;
+    --text-dim:rgba(232,228,223,.4);
+    --grain-opacity:.035;
+  }
+
+  html,body{
+    height:100%;
+    background:var(--bg);
+    color:var(--text);
+    font-family:'DM Sans',sans-serif;
+    overflow:hidden;
+    -webkit-font-smoothing:antialiased;
+  }
+
+  /* ── grain overlay ── */
+  body::before{
+    content:'';position:fixed;inset:0;z-index:9999;pointer-events:none;
+    opacity:var(--grain-opacity);
+    background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    background-repeat:repeat;background-size:128px;
+  }
+
+  /* ── ambient glow ── */
+  .ambient{
+    position:fixed;
+    width:600px;height:600px;
+    border-radius:50%;
+    filter:blur(180px);
+    opacity:.12;
+    pointer-events:none;
+    z-index:0;
+  }
+  .ambient.a{background:var(--accent);top:-10%;right:15%}
+  .ambient.b{background:#4a6741;bottom:-15%;left:10%}
+
+  /* ── layout ── */
+  .page{
+    display:flex;
+    height:100vh;
+    align-items:center;
+    justify-content:center;
+    gap:clamp(40px,8vw,140px);
+    padding:0 clamp(24px,5vw,80px);
+    position:relative;z-index:1;
+  }
+
+  /* ── left text ── */
+  .intro{max-width:420px;flex-shrink:0}
+
+  .intro .eyebrow{
+    font-family:'DM Sans',sans-serif;
+    font-weight:500;font-size:11px;
+    letter-spacing:.18em;text-transform:uppercase;
+    color:var(--accent);
+    margin-bottom:20px;
+    opacity:0;transform:translateY(12px);
+    animation:fadeUp .8s .2s ease forwards;
+  }
+
+  .intro h1{
+    font-family:'Instrument Serif',serif;
+    font-size:clamp(40px,5vw,64px);
+    font-weight:400;line-height:1.08;
+    letter-spacing:-.02em;
+    margin-bottom:24px;
+    opacity:0;transform:translateY(18px);
+    animation:fadeUp .8s .35s ease forwards;
+  }
+  .intro h1 em{
+    font-family:'Playfair Display',serif;
+    font-style:italic;font-weight:700;
+    color:var(--accent);
+  }
+
+  .intro p{
+    font-size:15px;font-weight:300;line-height:1.7;
+    color:var(--text-dim);
+    max-width:340px;
+    opacity:0;transform:translateY(14px);
+    animation:fadeUp .8s .5s ease forwards;
+  }
+
+  .intro .controls{
+    margin-top:32px;
+    display:flex;flex-wrap:wrap;gap:10px;
+    opacity:0;transform:translateY(14px);
+    animation:fadeUp .8s .65s ease forwards;
+  }
+
+  .intro .controls button{
+    background:transparent;
+    border:1px solid var(--border);
+    color:var(--text-dim);
+    font-family:'DM Sans',sans-serif;
+    font-size:12px;font-weight:400;
+    padding:8px 18px;border-radius:100px;
+    cursor:pointer;
+    transition:all .3s ease;
+  }
+  .intro .controls button:hover{
+    border-color:var(--accent);color:var(--accent);
+  }
+  .intro .controls button.active{
+    background:var(--accent-dim);
+    border-color:var(--accent);color:var(--accent);
+  }
+
+  /* ── card swap ── */
+  .card-swap-container{
+    position:relative;
+    perspective:900px;
+    flex-shrink:0;
+    opacity:0;transform:translateY(30px);
+    animation:fadeUp 1s .4s ease forwards;
+  }
+
+  .card{
+    position:absolute;
+    top:50%;left:50%;
+    border-radius:16px;
+    transform-style:preserve-3d;
+    will-change:transform;
+    backface-visibility:hidden;
+    -webkit-backface-visibility:hidden;
+    overflow:hidden;
+    cursor:pointer;
+    transition:box-shadow .4s ease;
+  }
+  .card:hover{ box-shadow:0 0 40px rgba(200,149,108,.08) }
+
+  .card .card-inner{
+    width:100%;height:100%;position:relative;
+    display:flex;flex-direction:column;
+    justify-content:flex-end;
+    padding:clamp(28px,4vw,44px);
+    background:#0f0f0f;
+    border:1px solid var(--border);
+    border-radius:16px;
+    overflow:hidden;
+  }
+
+  /* card patterns */
+  .card .pattern{
+    position:absolute;inset:0;opacity:.06;pointer-events:none;
+  }
+  .card[data-idx="0"] .pattern{
+    background:repeating-linear-gradient(
+      45deg,transparent,transparent 20px,var(--accent) 20px,var(--accent) 21px
+    );
+  }
+  .card[data-idx="1"] .pattern{
+    background:radial-gradient(circle 2px at 20px 20px,var(--accent) 100%,transparent 100%);
+    background-size:40px 40px;
+  }
+  .card[data-idx="2"] .pattern{
+    background:repeating-linear-gradient(
+      0deg,transparent,transparent 30px,var(--accent) 30px,var(--accent) 31px
+    ),repeating-linear-gradient(
+      90deg,transparent,transparent 30px,var(--accent) 30px,var(--accent) 31px
+    );
+  }
+  .card[data-idx="3"] .pattern{
+    background:repeating-conic-gradient(var(--accent) 0% 25%,transparent 0% 50%) 50% / 24px 24px;
+  }
+  .card[data-idx="4"] .pattern{
+    background:linear-gradient(135deg,var(--accent) 25%,transparent 25%) -20px 0/ 40px 40px,
+    linear-gradient(225deg,var(--accent) 25%,transparent 25%) -20px 0/ 40px 40px,
+    linear-gradient(315deg,var(--accent) 25%,transparent 25%) 0 0/ 40px 40px,
+    linear-gradient(45deg,var(--accent) 25%,transparent 25%) 0 0/ 40px 40px;
+  }
+
+  .card .number{
+    font-family:'Instrument Serif',serif;
+    font-size:clamp(100px,14vw,180px);
+    line-height:.85;
+    color:rgba(255,255,255,.03);
+    position:absolute;top:20px;right:24px;
+    pointer-events:none;
+    user-select:none;
+  }
+
+  .card .label{
+    font-family:'DM Sans',sans-serif;
+    font-size:11px;font-weight:500;
+    letter-spacing:.15em;text-transform:uppercase;
+    color:var(--accent);margin-bottom:8px;
+  }
+  .card .title{
+    font-family:'Instrument Serif',serif;
+    font-size:clamp(24px,3vw,34px);
+    font-weight:400;line-height:1.15;
+    color:var(--text);
+  }
+  .card .desc{
+    margin-top:10px;
+    font-size:13px;font-weight:300;line-height:1.6;
+    color:var(--text-dim);
+    max-width:280px;
+  }
+
+  @keyframes fadeUp{
+    to{opacity:1;transform:translateY(0)}
+  }
+
+  /* ── responsive ── */
+  @media(max-width:900px){
+    .page{flex-direction:column;gap:40px;justify-content:center;padding-top:60px}
+    .intro{text-align:center;max-width:100%}
+    .intro p{max-width:100%}
+    .intro .controls{justify-content:center}
+  }
+  @media(max-width:480px){
+    .card-swap-container{transform-origin:center center;scale:.7}
+  }
+</style>
+</head>
+<body>
+
+<div class="ambient a"></div>
+<div class="ambient b"></div>
+
+<div class="page">
+  <div class="intro">
+    <div class="eyebrow">UI Practice 02</div>
+    <h1>Card stacks have<br>never looked<br>so <em>good</em></h1>
+    <p>3D perspective stack with elastic swap animation. Hover to pause. Pure vanilla JS — no dependencies.</p>
+    <div class="controls">
+      <button class="active" data-easing="elastic">Elastic</button>
+      <button data-easing="smooth">Smooth</button>
+      <button data-speed="3000">Fast</button>
+      <button data-speed="5000" class="active">Normal</button>
+      <button data-speed="8000">Slow</button>
+    </div>
+  </div>
+
+  <div class="card-swap-container" id="swapContainer"></div>
+</div>
+
+<script>
+/* ─────────────────────────────────────
+   EASING FUNCTIONS
+   ───────────────────────────────────── */
+function elasticOut(t) {
+  if (t === 0 || t === 1) return t;
+  const p = 0.9;          // period  (GSAP elastic.out(0.6,0.9) equivalent)
+  const a = 0.6;          // amplitude
+  const s = (p / (Math.PI * 2)) * Math.asin(1 / a);
+  return a * Math.pow(2, -10 * t) * Math.sin((t - s) * (Math.PI * 2) / p) + 1;
+}
+
+function powerInOut(t) {
+  return t < 0.5
+    ? 0.5 * Math.pow(2 * t, 2)
+    : 1 - 0.5 * Math.pow(2 * (1 - t), 2);
+}
+
+/* ─────────────────────────────────────
+   MINI TWEEN ENGINE
+   ───────────────────────────────────── */
+const activeTweens = new Set();
+let rafId = null;
+
+function tick(now) {
+  for (const tw of activeTweens) {
+    // skip if delay hasn't elapsed yet
+    if (now < tw.start) continue;
+
+    // lazy-capture 'from' on first active tick so we get the current value,
+    // not the value at creation time (avoids jumps when chaining tweens)
+    if (!tw.captured) {
+      tw.captured = true;
+      for (const k of Object.keys(tw.to)) tw.from[k] = tw.target[k];
+    }
+
+    const elapsed = now - tw.start;
+    let t = Math.min(elapsed / tw.dur, 1);
+    t = tw.ease(t);
+    for (const k of Object.keys(tw.from)) {
+      tw.target[k] = tw.from[k] + (tw.to[k] - tw.from[k]) * t;
+    }
+    if (elapsed >= tw.dur) {
+      for (const k of Object.keys(tw.to)) tw.target[k] = tw.to[k];
+      activeTweens.delete(tw);
+      tw.onComplete?.();
+    }
+  }
+  renderCards();
+  if (activeTweens.size > 0) {
+    rafId = requestAnimationFrame(tick);
+  } else {
+    rafId = null;
+  }
+}
+
+function ensureRAF() {
+  if (rafId === null) rafId = requestAnimationFrame(tick);
+}
+
+function tweenTo(target, to, dur, ease, delayMs, onComplete) {
+  const tw = {
+    target, from: {}, to, dur, ease,
+    start: performance.now() + (delayMs || 0),
+    onComplete, captured: false,
+  };
+  activeTweens.add(tw);
+  ensureRAF();
+  return tw;
+}
+
+/* ─────────────────────────────────────
+   CARD DATA & SETUP
+   ───────────────────────────────────── */
+const CARDS = [
+  { label: 'Design', title: 'Fluid Motion',   desc: 'Elastic physics bring interfaces to life.' },
+  { label: 'Craft',  title: 'Precise Detail',  desc: 'Every pixel placed with intention.' },
+  { label: 'System', title: 'Composable',      desc: 'Modular patterns, infinite combinations.' },
+  { label: 'Vision', title: 'Perspective',      desc: '3D depth creates spatial hierarchy.' },
+  { label: 'Code',   title: 'Vanilla JS',       desc: 'Zero dependencies, full control.' },
+];
+
+const WIDTH  = 420;
+const HEIGHT = 320;
+
+let cardDistance     = 60;
+let verticalDistance = 70;
+let skewAmount      = 6;
+let delay            = 5000;
+let easingMode       = 'elastic';
+let pauseOnHover     = true;
+
+function getEase() { return easingMode === 'elastic' ? elasticOut : powerInOut; }
+function getConfig() {
+  return easingMode === 'elastic'
+    ? { durDrop: 2000, durMove: 2000, durReturn: 2000, promoteOverlap: 0.9, returnDelay: 0.05 }
+    : { durDrop: 800,  durMove: 800,  durReturn: 800,  promoteOverlap: 0.45, returnDelay: 0.2 };
+}
+
+/* ─────────────────────────────────────
+   STATE
+   ───────────────────────────────────── */
+const container = document.getElementById('swapContainer');
+container.style.width  = WIDTH + 'px';
+container.style.height = HEIGHT + 'px';
+
+const cardEls = [];
+const cardStates = [];     // { x, y, z, skewY, zIndex }
+const order = [];           // indices
+
+function makeSlot(i) {
+  return {
+    x: i * cardDistance,
+    y: -i * verticalDistance,
+    z: -i * cardDistance * 1.5,
+    zIndex: CARDS.length - i,
+  };
+}
+
+// create DOM
+CARDS.forEach((data, i) => {
+  const el = document.createElement('div');
+  el.className = 'card';
+  el.dataset.idx = String(i);
+  el.innerHTML = `
+    <div class="card-inner">
+      <div class="pattern"></div>
+      <span class="number">${i + 1}</span>
+      <div class="label">${data.label}</div>
+      <div class="title">${data.title}</div>
+      <div class="desc">${data.desc}</div>
+    </div>`;
+  el.style.width  = WIDTH + 'px';
+  el.style.height = HEIGHT + 'px';
+  container.appendChild(el);
+  cardEls.push(el);
+
+  const slot = makeSlot(i);
+  cardStates.push({
+    x: slot.x,
+    y: slot.y,
+    z: slot.z,
+    skewY: skewAmount,
+    zIndex: slot.zIndex,
+  });
+  order.push(i);
+});
+
+/* ─────────────────────────────────────
+   RENDER
+   ───────────────────────────────────── */
+function renderCards() {
+  for (let i = 0; i < CARDS.length; i++) {
+    const s = cardStates[i];
+    const el = cardEls[i];
+    el.style.zIndex = s.zIndex;
+    el.style.transform =
+      `translate(-50%,-50%) translate3d(${s.x}px,${s.y}px,${s.z}px) skewY(${s.skewY}deg)`;
+  }
+}
+renderCards();
+
+/* ─────────────────────────────────────
+   SWAP ANIMATION
+   ───────────────────────────────────── */
+let swapping = false;
+
+function swap() {
+  if (order.length < 2 || swapping) return;
+  swapping = true;
+
+  const cfg  = getConfig();
+  const ease = getEase();
+  const total = CARDS.length;
+
+  const frontIdx = order[0];
+  const frontState = cardStates[frontIdx];
+
+  // Phase 1: drop front card
+  tweenTo(frontState, { y: frontState.y + 500 }, cfg.durDrop, ease, 0, null);
+
+  // Phase 2: promote remaining cards (overlapping with drop)
+  const promoteDelay = cfg.durDrop * (1 - cfg.promoteOverlap);
+  for (let i = 1; i < order.length; i++) {
+    const idx = order[i];
+    const slot = makeSlot(i - 1);
+    cardStates[idx].zIndex = slot.zIndex;
+    tweenTo(cardStates[idx], { x: slot.x, y: slot.y, z: slot.z },
+      cfg.durMove, ease, promoteDelay + (i - 1) * 150, null);
+  }
+
+  // Phase 3: return front card to back
+  const returnDelay = promoteDelay + cfg.durMove * cfg.returnDelay;
+  const backSlot = makeSlot(total - 1);
+
+  setTimeout(() => {
+    frontState.zIndex = backSlot.zIndex;
+  }, returnDelay);
+
+  tweenTo(frontState, { x: backSlot.x, y: backSlot.y, z: backSlot.z },
+    cfg.durReturn, ease, returnDelay, () => {
+      // reorder
+      const [first, ...rest] = order;
+      order.length = 0;
+      order.push(...rest, first);
+      swapping = false;
+    });
+}
+
+/* ─────────────────────────────────────
+   AUTO-PLAY + PAUSE ON HOVER
+   ───────────────────────────────────── */
+let intervalId = null;
+let paused = false;
+
+function startInterval() {
+  clearInterval(intervalId);
+  intervalId = setInterval(() => { if (!paused) swap(); }, delay);
+}
+
+// initial swap + start
+swap();
+startInterval();
+
+container.addEventListener('mouseenter', () => { paused = true; });
+container.addEventListener('mouseleave', () => { paused = false; });
+
+/* ─────────────────────────────────────
+   CONTROLS
+   ───────────────────────────────────── */
+document.querySelectorAll('.controls button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    if (btn.dataset.easing) {
+      document.querySelectorAll('[data-easing]').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      easingMode = btn.dataset.easing;
+    }
+    if (btn.dataset.speed) {
+      document.querySelectorAll('[data-speed]').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      delay = Number(btn.dataset.speed);
+      startInterval();
+    }
+  });
+});
+</script>
+</body>
+</html>
