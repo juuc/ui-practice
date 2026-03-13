@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="color-scheme" content="dark light">
+<title>Mood Check-in</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;1,400&family=DM+Sans:wght@400;500&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg: #080809;
+    --text: #f0ede8;
+    --text-muted: rgba(240, 237, 232, 0.45);
+  }
+
+  html, body {
+    height: 100%;
+    overflow: hidden;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    touch-action: none;
+  }
+
+  .header {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+    padding: 48px 24px 28px;
+    background: linear-gradient(to bottom, var(--bg) 50%, transparent);
+    pointer-events: none;
+  }
+  .header-nav {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 6px; pointer-events: auto;
+  }
+  .back-btn {
+    background: none; border: none; color: var(--text);
+    font-size: 22px; cursor: pointer; padding: 4px 8px;
+    opacity: 0.6; transition: opacity 0.2s;
+  }
+  .back-btn:hover { opacity: 1; }
+  .step-indicator { font-size: 13px; color: var(--text-muted); letter-spacing: 0.5px; }
+  .progress-track { height: 2px; background: rgba(255,255,255,0.08); border-radius: 1px; margin-bottom: 16px; }
+  .progress-fill { height: 100%; width: 44%; background: var(--text); border-radius: 1px; }
+  .header h1 {
+    font-family: 'Playfair Display', serif;
+    font-size: 28px; font-weight: 600; line-height: 1.15;
+    letter-spacing: -0.5px; margin-bottom: 6px;
+  }
+  .header p { font-size: 14px; color: var(--text-muted); line-height: 1.4; }
+
+  .viewport { position: absolute; inset: 0; overflow: hidden; cursor: grab; }
+  .viewport.dragging { cursor: grabbing; }
+
+  canvas { position: absolute; top: 0; left: 0; }
+
+  .vignette {
+    position: fixed; inset: 0; pointer-events: none; z-index: 50;
+    background: radial-gradient(ellipse 70% 60% at 50% 50%, transparent 30%, var(--bg) 100%);
+  }
+  .vignette-top {
+    position: fixed; top: 0; left: 0; right: 0; height: 200px;
+    pointer-events: none; z-index: 51;
+    background: linear-gradient(to bottom, var(--bg) 45%, transparent);
+  }
+  .vignette-bottom {
+    position: fixed; bottom: 0; left: 0; right: 0; height: 80px;
+    pointer-events: none; z-index: 51;
+    background: linear-gradient(to top, var(--bg) 10%, transparent);
+  }
+
+  .scroll-hint {
+    position: fixed; bottom: 24px; left: 50%;
+    transform: translateX(-50%); z-index: 60;
+    font-size: 11px; color: var(--text-muted);
+    letter-spacing: 1.5px; text-transform: uppercase;
+    animation: pulse 2.5s ease-in-out infinite;
+    pointer-events: none; transition: opacity 0.6s ease;
+  }
+  .scroll-hint.hidden { opacity: 0; }
+  @keyframes pulse { 0%, 100% { opacity: 0.2; } 50% { opacity: 0.55; } }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-nav">
+    <button class="back-btn">&larr;</button>
+    <span class="step-indicator">4 / 9</span>
+  </div>
+  <div class="progress-track"><div class="progress-fill"></div></div>
+  <h1>How do you feel<br>right now?</h1>
+  <p>Drag around and tap the one that fits</p>
+</div>
+
+<div class="viewport" id="viewport">
+  <canvas id="canvas"></canvas>
+</div>
+
+<div class="vignette"></div>
+<div class="vignette-top"></div>
+<div class="vignette-bottom"></div>
+<div class="scroll-hint" id="scrollHint">drag to explore</div>
+
+<script>
+// ═══════════════════════════════════════
+// CONFIG
+// ═══════════════════════════════════════
+const EMOTIONS = [
+  'Thoughtful', 'Appreciated', 'Supported', 'At Ease', 'Understood',
+  'Respected', 'Compassionate', 'Included', 'Comfortable', 'Empathetic',
+  'Content', 'Chill', 'Peaceful', 'Safe', 'Balanced', 'Grateful',
+  'Serene', 'Gentle', 'Mellow', 'Relaxed', 'Grounded', 'Hopeful',
+  'Calm', 'Tender', 'Secure', 'Warm', 'Soothed', 'Fulfilled',
+  'Accepted', 'Connected', 'Trusting', 'Blessed', 'Harmonious',
+  'Carefree', 'Centered', 'Rested', 'Refreshed', 'Loved', 'Nurturing',
+  'Kind', 'Present', 'Whole', 'Light', 'Open', 'Still', 'Free',
+  'Steady', 'Joyful', 'Alive', 'Soft', 'Quiet', 'Easy', 'Bright',
+  'Pure', 'Clear', 'True'
+];
+
+const BASE_R = 42;          // base bubble radius
+const GAP = 20;             // gap between bubbles
+const STRIDE = BASE_R * 2 + GAP;
+const COLS = 13;
+const ROWS = 15;
+const FOCUS_RADIUS = 320;   // distance from center where scaling starts
+const MAX_SCALE = 2.0;      // max scale at dead center
+const POS_LERP = 0.08;      // position interpolation speed
+const SCALE_LERP = 0.06;    // scale interpolation speed
+const MORPH_DURATION = 40;  // frames for full morph in/out (~0.67s at 60fps)
+
+// ═══════════════════════════════════════
+// ORGANIC SHAPES (polar radius modulators)
+// ═══════════════════════════════════════
+// Each function takes angle θ and returns radius multiplier (1 = circle)
+const SHAPES = [
+  // 0: squircle (soft square)
+  (θ) => 1 + 0.12 * Math.cos(4 * θ),
+  // 1: 4-petal flower
+  (θ) => 1 + 0.30 * Math.pow(Math.abs(Math.cos(2 * θ)), 0.7),
+  // 2: 6-petal flower (like "Comfortable" in reference)
+  (θ) => 1 + 0.25 * Math.pow(Math.abs(Math.cos(3 * θ)), 0.6),
+  // 3: bowtie / hourglass (like "Compassionate" in reference)
+  (θ) => 1 - 0.28 * Math.cos(2 * θ) + 0.10 * Math.cos(4 * θ),
+  // 4: star-4
+  (θ) => 1 + 0.22 * Math.pow(Math.abs(Math.sin(2 * θ)), 1.5),
+  // 5: pinched oval
+  (θ) => 1 + 0.20 * Math.cos(2 * θ) + 0.12 * Math.cos(6 * θ),
+  // 6: cross / plus
+  (θ) => 1 + 0.25 * Math.pow(Math.abs(Math.cos(2 * θ + Math.PI / 4)), 2),
+  // 7: 8-petal flower (tight petals)
+  (θ) => 1 + 0.18 * Math.cos(8 * θ),
+  // 8: rounded diamond
+  (θ) => 1 + 0.22 * Math.cos(2 * θ) + 0.10 * Math.cos(4 * θ),
+  // 9: multi-petal subtle
+  (θ) => 1 + 0.12 * Math.cos(4 * θ) + 0.08 * Math.cos(6 * θ) + 0.06 * Math.cos(8 * θ),
+];
+
+const SHAPE_POINTS = 72; // resolution of polar path
+
+// Precompute max radius multiplier for each shape (for collision detection)
+const SHAPE_MAX = SHAPES.map(fn => {
+  let max = 0;
+  for (let i = 0; i < 360; i++) max = Math.max(max, fn(i * Math.PI / 180));
+  return max;
+});
+
+// ═══════════════════════════════════════
+// BUBBLE DATA
+// ═══════════════════════════════════════
+const bubbles = [];
+
+function initBubbles() {
+  GRID_W = COLS * STRIDE;
+  GRID_H = ROWS * STRIDE;
+
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      const homeX = c * STRIDE;
+      const homeY = r * STRIDE;
+      const emotion = EMOTIONS[(r * COLS + c) % EMOTIONS.length];
+
+      // Color
+      const t = ((r / ROWS) + (c / COLS)) / 2;
+      const noise = Math.sin(r * 3.7 + c * 2.3) * 0.5 + 0.5;
+      const h = 140 + t * 30 + noise * 10;
+      const s = 50 + noise * 30;
+      const l = 52 + t * 16 + noise * 8;
+
+      bubbles.push({
+        homeX, homeY,
+        px: homeX, py: homeY,   // render position (lerps toward target)
+        r: BASE_R,
+        scale: 1,
+        morphAmt: 0,            // 0→1, purely visual, time-based
+        emotion,
+        h, s, l,
+        shapeIdx: Math.floor(Math.random() * SHAPES.length),
+        shapeRotation: Math.random() * Math.PI * 2,
+        selected: false
+      });
+    }
+  }
+}
+
+// ═══════════════════════════════════════
+// LAYOUT + MORPH (separated concerns)
+// ═══════════════════════════════════════
+// Arrangement: deterministic displacement from scaled cells (no physics)
+// Transformation: time-based morph, shapes contained within cell radius
+// ═══════════════════════════════════════
+let GRID_W, GRID_H;
+const MORPH_RADIUS = 250;   // distance within which cells morph
+
+function wrapCoord(v, period, center) {
+  return ((v - center) % period + period * 1.5) % period - period / 2 + center;
+}
+
+function wrapDelta(d, period) {
+  if (d > period / 2) return d - period;
+  if (d < -period / 2) return d + period;
+  return d;
+}
+
+function smoothstep(t) {
+  t = Math.max(0, Math.min(1, t));
+  return t * t * (3 - 2 * t);
+}
+
+function simulate(vcx, vcy, scrollX, scrollY) {
+  // ── STEP 1: Compute target scale for each cell (distance-based) ──
+  for (const b of bubbles) {
+    const sx = wrapCoord(b.homeX + scrollX, GRID_W, vcx);
+    const sy = wrapCoord(b.homeY + scrollY, GRID_H, vcy);
+    const d = Math.hypot(sx - vcx, sy - vcy);
+
+    const targetScale = d < FOCUS_RADIUS ? 1 + (MAX_SCALE - 1) * smoothstep(1 - d / FOCUS_RADIUS) : 1;
+    b.scale += (targetScale - b.scale) * SCALE_LERP;
+    b.r = BASE_R * b.scale;
+
+    // Morph: time-based linear ramp (not exponential lerp)
+    const inMorphZone = d < MORPH_RADIUS;
+    const step = 1 / MORPH_DURATION;
+    if (inMorphZone) {
+      const targetMorph = smoothstep(1 - d / MORPH_RADIUS);
+      // Ramp toward target
+      if (b.morphAmt < targetMorph) b.morphAmt = Math.min(targetMorph, b.morphAmt + step);
+      else b.morphAmt = Math.max(targetMorph, b.morphAmt - step);
+    } else {
+      // Ramp down to 0
+      b.morphAmt = Math.max(0, b.morphAmt - step);
+    }
+  }
+
+  // ── STEP 2: Deterministic displacement (arrangement) ──
+  // Start all cells at home, then resolve overlaps iteratively
+  for (const b of bubbles) {
+    b.targetX = b.homeX;
+    b.targetY = b.homeY;
+  }
+
+  // Iterative overlap resolution (3 passes for cascade)
+  const n = bubbles.length;
+  for (let pass = 0; pass < 3; pass++) {
+    for (let i = 0; i < n; i++) {
+      const a = bubbles[i];
+      for (let j = i + 1; j < n; j++) {
+        const b = bubbles[j];
+
+        let dx = b.targetX - a.targetX;
+        let dy = b.targetY - a.targetY;
+        dx = wrapDelta(dx, GRID_W);
+        dy = wrapDelta(dy, GRID_H);
+        const dist = Math.hypot(dx, dy);
+
+        const minDist = a.r + b.r + GAP * 0.4;
+
+        if (dist < minDist && dist > 0.01) {
+          const overlap = minDist - dist;
+          const nx = dx / dist;
+          const ny = dy / dist;
+
+          // Lighter cells (smaller r) move more
+          const totalR = a.r + b.r;
+          const wA = b.r / totalR;
+          const wB = a.r / totalR;
+
+          a.targetX -= nx * overlap * wA;
+          a.targetY -= ny * overlap * wA;
+          b.targetX += nx * overlap * wB;
+          b.targetY += ny * overlap * wB;
+        }
+      }
+    }
+  }
+
+  // ── STEP 3: Lerp render positions toward targets ──
+  for (const b of bubbles) {
+    b.px += (b.targetX - b.px) * POS_LERP;
+    b.py += (b.targetY - b.py) * POS_LERP;
+  }
+}
+
+// ═══════════════════════════════════════
+// CANVAS RENDERING
+// ═══════════════════════════════════════
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const viewport = document.getElementById('viewport');
+const hint = document.getElementById('scrollHint');
+let dpr = window.devicePixelRatio || 1;
+
+function resizeCanvas() {
+  const w = viewport.clientWidth;
+  const h = viewport.clientHeight;
+  canvas.width = w * dpr;
+  canvas.height = h * dpr;
+  canvas.style.width = w + 'px';
+  canvas.style.height = h + 'px';
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+
+// Trace a polar shape CONTAINED within radius r (normalized so peaks = r, valleys go inward)
+function tracePolarPath(ctx, x, y, r, shapeIdx, morphAmt, rotation) {
+  const shapeFn = SHAPES[shapeIdx];
+  const maxR = SHAPE_MAX[shapeIdx]; // normalize so shape fits inside r
+  ctx.beginPath();
+  for (let i = 0; i <= SHAPE_POINTS; i++) {
+    const θ = (i / SHAPE_POINTS) * Math.PI * 2;
+    const raw = shapeFn(θ + rotation) / maxR; // normalized: 0..1 range where 1 = at radius
+    // Lerp: circle (1.0) → normalized shape
+    const modR = r * (1 + (raw - 1) * morphAmt);
+    const px = x + Math.cos(θ) * modR;
+    const py = y + Math.sin(θ) * modR;
+    if (i === 0) ctx.moveTo(px, py);
+    else ctx.lineTo(px, py);
+  }
+  ctx.closePath();
+}
+
+function drawBubbleAt(b, x, y) {
+  const r = b.r;
+  const morph = b.morphAmt;
+
+  ctx.save();
+
+  const hue = Math.round(b.h);
+  const sat = Math.round(b.s);
+  const lit = Math.round(b.l);
+
+  // Draw shape path (circle when morph ≈ 0, organic shape when morph > 0)
+  if (morph > 0.01) {
+    tracePolarPath(ctx, x, y, r, b.shapeIdx, morph, b.shapeRotation);
+  } else {
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+  }
+  ctx.fillStyle = `hsl(${hue},${sat}%,${lit}%)`;
+  ctx.fill();
+
+  // Glow
+  ctx.shadowColor = `hsla(${hue},${sat}%,${lit}%,0.5)`;
+  ctx.shadowBlur = 15 + (b.scale - 1) * 20;
+  ctx.fill();
+  ctx.shadowBlur = 0;
+  ctx.shadowColor = 'transparent';
+
+  // Highlight
+  const grad = ctx.createRadialGradient(
+    x - r * 0.2, y - r * 0.25, 0,
+    x - r * 0.2, y - r * 0.25, r * 0.8
+  );
+  grad.addColorStop(0, 'rgba(255,255,255,0.22)');
+  grad.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = grad;
+  ctx.fill();
+
+  // Inner shadow (bottom)
+  const innerGrad = ctx.createLinearGradient(x, y + r * 0.3, x, y + r);
+  innerGrad.addColorStop(0, 'rgba(0,0,0,0)');
+  innerGrad.addColorStop(1, `rgba(0,0,0,0.15)`);
+  ctx.fillStyle = innerGrad;
+  ctx.fill();
+
+  // Selection ring
+  if (b.selected) {
+    ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+    ctx.lineWidth = 2.5;
+    if (morph > 0.01) {
+      tracePolarPath(ctx, x, y, r + 4, b.shapeIdx, morph, b.shapeRotation);
+    } else {
+      ctx.beginPath();
+      ctx.arc(x, y, r + 4, 0, Math.PI * 2);
+    }
+    ctx.stroke();
+  }
+
+  // Label
+  const fontSize = 11 + (b.scale - 1) * 12;
+  ctx.font = `${b.scale > 1.3 ? '600' : '400'} ${fontSize.toFixed(1)}px 'Playfair Display', serif`;
+  ctx.fillStyle = `rgba(0,0,0,${0.55 + (b.scale - 1) * 0.4})`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(b.emotion, x, y + 1);
+
+  ctx.restore();
+}
+
+function draw(scrollX, scrollY) {
+  const w = viewport.clientWidth;
+  const h = viewport.clientHeight;
+  ctx.clearRect(0, 0, w, h);
+
+  // Sort by scale so larger bubbles render on top
+  const sorted = [...bubbles].sort((a, b) => a.scale - b.scale);
+
+  // Draw each bubble at all wrapped positions that are visible
+  for (const b of sorted) {
+    for (let wy = -1; wy <= 1; wy++) {
+      for (let wx = -1; wx <= 1; wx++) {
+        const sx = b.px + scrollX + wx * GRID_W;
+        const sy = b.py + scrollY + wy * GRID_H;
+        // Cull off-screen
+        if (sx + b.r < -50 || sx - b.r > w + 50 ||
+            sy + b.r < -50 || sy - b.r > h + 50) continue;
+        drawBubbleAt(b, sx, sy);
+      }
+    }
+  }
+}
+
+// ═══════════════════════════════════════
+// SCROLL + INTERACTION
+// ═══════════════════════════════════════
+let scrollX = 0, scrollY = 0;
+let velX = 0, velY = 0;
+let isDragging = false, dragMoved = false;
+let startX, startY, pointerDownX, pointerDownY;
+let lastX, lastY, lastTime;
+let hasScrolled = false;
+
+function centerGrid() {
+  const vw = viewport.clientWidth;
+  const vh = viewport.clientHeight;
+  const gw = (COLS - 1) * STRIDE;
+  const gh = (ROWS - 1) * STRIDE;
+  scrollX = -(gw - vw) / 2;
+  scrollY = -(gh - vh) / 2;
+}
+
+
+function onDown(e) {
+  isDragging = true; dragMoved = false;
+  viewport.classList.add('dragging');
+  startX = e.clientX - scrollX;
+  startY = e.clientY - scrollY;
+  pointerDownX = lastX = e.clientX;
+  pointerDownY = lastY = e.clientY;
+  lastTime = performance.now();
+  velX = velY = 0;
+}
+
+function onMove(e) {
+  if (!isDragging) return;
+  e.preventDefault();
+  const now = performance.now();
+  const dt = now - lastTime;
+  scrollX = e.clientX - startX;
+  scrollY = e.clientY - startY;
+  if (dt > 0) {
+    velX = 0.4 * ((e.clientX - lastX) / dt * 16) + 0.6 * velX;
+    velY = 0.4 * ((e.clientY - lastY) / dt * 16) + 0.6 * velY;
+  }
+  lastX = e.clientX; lastY = e.clientY; lastTime = now;
+  dragMoved = true;
+  if (!hasScrolled) { hasScrolled = true; hint.classList.add('hidden'); }
+}
+
+function onUp() {
+  if (!isDragging) return;
+  isDragging = false;
+  viewport.classList.remove('dragging');
+}
+
+viewport.addEventListener('pointerdown', onDown);
+window.addEventListener('pointermove', onMove);
+window.addEventListener('pointerup', onUp);
+viewport.addEventListener('touchmove', e => e.preventDefault(), { passive: false });
+
+viewport.addEventListener('click', e => {
+  if (dragMoved && (Math.abs(e.clientX - pointerDownX) > 6 || Math.abs(e.clientY - pointerDownY) > 6)) return;
+  const cx = e.clientX, cy = e.clientY;
+  let closest = null, closestDist = Infinity;
+  for (const b of bubbles) {
+    // Check all wrapped positions
+    for (let wy = -1; wy <= 1; wy++) {
+      for (let wx = -1; wx <= 1; wx++) {
+        const sx = b.px + scrollX + wx * GRID_W;
+        const sy = b.py + scrollY + wy * GRID_H;
+        const d = Math.hypot(sx - cx, sy - cy);
+        if (d < b.r && d < closestDist) { closest = b; closestDist = d; }
+      }
+    }
+  }
+  bubbles.forEach(b => b.selected = false);
+  if (closest) closest.selected = true;
+});
+
+viewport.addEventListener('wheel', e => {
+  e.preventDefault();
+  scrollX -= e.deltaX * 0.8;
+  scrollY -= e.deltaY * 0.8;
+  if (!hasScrolled) { hasScrolled = true; hint.classList.add('hidden'); }
+}, { passive: false });
+
+// ═══════════════════════════════════════
+// MAIN LOOP
+// ═══════════════════════════════════════
+initBubbles();
+resizeCanvas();
+centerGrid();
+
+function loop() {
+  // Momentum when not dragging
+  if (!isDragging) {
+    velX *= 0.93; velY *= 0.93;
+    scrollX += velX; scrollY += velY;
+  }
+
+  // Normalize scroll to stay within one grid period (keeps 3x3 wrap valid)
+  scrollX = ((scrollX % GRID_W) + GRID_W) % GRID_W;
+  scrollY = ((scrollY % GRID_H) + GRID_H) % GRID_H;
+
+  const vcx = viewport.clientWidth / 2;
+  const vcy = viewport.clientHeight / 2;
+
+  simulate(vcx, vcy, scrollX, scrollY);
+  draw(scrollX, scrollY);
+
+  requestAnimationFrame(loop);
+}
+
+requestAnimationFrame(loop);
+window.addEventListener('resize', resizeCanvas);
+</script>
+</body>
+</html>
