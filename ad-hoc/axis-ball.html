@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>3D Axis Ball</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{
+    background:#0a0a0a;color:#e8e4df;
+    font-family:'SF Mono',Menlo,monospace;
+    height:100vh;display:flex;align-items:center;justify-content:center;
+    overflow:hidden;
+  }
+
+  .scene{
+    perspective:600px;
+    width:400px;height:400px;
+    position:relative;
+  }
+
+  /* axis lines */
+  .axis{position:absolute;top:50%;left:50%;pointer-events:none}
+  .axis-x{width:300px;height:1px;background:linear-gradient(90deg,rgba(255,80,80,.1),#f55,rgba(255,80,80,.1));transform:translate(-50%,0)}
+  .axis-y{width:1px;height:300px;background:linear-gradient(180deg,rgba(80,255,80,.1),#5f5,rgba(80,255,80,.1));transform:translate(0,-50%)}
+  .axis-z{width:300px;height:1px;background:linear-gradient(90deg,rgba(80,80,255,.1),#55f,rgba(80,80,255,.1));transform:translate(-50%,0) rotateY(90deg)}
+
+  /* labels */
+  .label{position:absolute;font-size:11px;font-weight:600;opacity:.7}
+  .label-x{color:#f55;top:50%;left:calc(50% + 160px);transform:translateY(-50%)}
+  .label-nx{color:#f55;top:50%;left:calc(50% - 180px);transform:translateY(-50%)}
+  .label-y{color:#5f5;left:50%;top:calc(50% - 165px);transform:translateX(-50%)}
+  .label-ny{color:#5f5;left:50%;top:calc(50% + 155px);transform:translateX(-50%)}
+  .label-z{color:#55f;top:calc(50% + 20px);left:calc(50% + 20px)}
+
+  /* ball */
+  .ball-wrapper{
+    position:absolute;top:50%;left:50%;
+    transform-style:preserve-3d;
+    will-change:transform;
+  }
+  .ball{
+    width:40px;height:40px;
+    margin:-20px 0 0 -20px;
+    border-radius:50%;
+    background:radial-gradient(circle at 35% 35%,#fff,#c8956c 40%,#8a5a3a 100%);
+    box-shadow:0 0 20px rgba(200,149,108,.4);
+  }
+
+  /* shadow on ground */
+  .shadow{
+    position:absolute;top:50%;left:50%;
+    width:30px;height:8px;margin:-4px 0 0 -15px;
+    background:rgba(200,149,108,.15);
+    border-radius:50%;
+    filter:blur(4px);
+  }
+
+  /* controls */
+  .controls{
+    position:fixed;right:40px;top:50%;transform:translateY(-50%);
+    display:flex;flex-direction:column;gap:24px;
+  }
+  .control{display:flex;flex-direction:column;gap:6px}
+  .control label{font-size:11px;letter-spacing:.1em;text-transform:uppercase}
+  .control label span{font-variant-numeric:tabular-nums}
+  .control .cx{color:#f55}
+  .control .cy{color:#5f5}
+  .control .cz{color:#55f}
+  input[type=range]{
+    -webkit-appearance:none;width:180px;height:4px;
+    background:#222;border-radius:2px;outline:none;
+  }
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none;width:14px;height:14px;
+    border-radius:50%;cursor:pointer;
+  }
+  .sx::-webkit-slider-thumb{background:#f55}
+  .sy::-webkit-slider-thumb{background:#5f5}
+  .sz::-webkit-slider-thumb{background:#55f}
+
+  /* readout */
+  .auto-btn{
+    position:fixed;right:40px;top:calc(50% + 100px);
+    background:transparent;border:1px solid #333;
+    color:#888;font-family:'SF Mono',Menlo,monospace;
+    font-size:11px;letter-spacing:.1em;text-transform:uppercase;
+    padding:8px 20px;border-radius:100px;cursor:pointer;
+    transition:all .3s ease;
+  }
+  .auto-btn:hover{border-color:#c8956c;color:#c8956c}
+  .auto-btn.active{background:rgba(200,149,108,.15);border-color:#c8956c;color:#c8956c}
+
+  .auto-phase{
+    position:fixed;right:40px;top:calc(50% + 145px);
+    font-size:11px;color:#555;letter-spacing:.05em;
+  }
+
+  .readout{
+    position:fixed;left:40px;bottom:40px;
+    font-size:13px;line-height:1.8;opacity:.6;
+  }
+  .readout .rx{color:#f55}
+  .readout .ry{color:#5f5}
+  .readout .rz{color:#55f}
+
+  /* perspective control */
+  .persp-control{
+    position:fixed;left:40px;top:50%;transform:translateY(-50%);
+    display:flex;flex-direction:column;gap:6px;
+  }
+  .persp-control label{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:#888}
+  .persp-control input{
+    -webkit-appearance:none;width:180px;height:4px;
+    background:#222;border-radius:2px;outline:none;
+  }
+  .persp-control input::-webkit-slider-thumb{
+    -webkit-appearance:none;width:14px;height:14px;
+    border-radius:50%;background:#888;cursor:pointer;
+  }
+</style>
+</head>
+<body>
+
+<div class="scene" id="scene">
+  <div class="axis axis-x"></div>
+  <div class="axis axis-y"></div>
+  <div class="axis axis-z"></div>
+  <div class="label label-x">+X (right)</div>
+  <div class="label label-nx">−X (left)</div>
+  <div class="label label-y">−Y (up)</div>
+  <div class="label label-ny">+Y (down)</div>
+  <div class="label label-z">+Z (toward you)</div>
+  <div class="shadow" id="shadow"></div>
+  <div class="ball-wrapper" id="wrapper">
+    <div class="ball"></div>
+  </div>
+</div>
+
+<div class="persp-control">
+  <label>Perspective: <span id="pVal">600</span>px</label>
+  <input type="range" min="100" max="2000" value="600" id="persp">
+</div>
+
+<div class="controls">
+  <div class="control">
+    <label class="cx">X: <span id="xVal">0</span>px</label>
+    <input type="range" class="sx" min="-100" max="100" value="0" id="sx">
+  </div>
+  <div class="control">
+    <label class="cy">Y: <span id="yVal">0</span>px</label>
+    <input type="range" class="sy" min="-100" max="100" value="0" id="sy">
+  </div>
+  <div class="control">
+    <label class="cz">Z: <span id="zVal">0</span>px</label>
+    <input type="range" class="sz" min="-100" max="100" value="0" id="sz">
+  </div>
+</div>
+<button class="auto-btn" id="autoBtn">Auto Move</button>
+<div class="auto-phase" id="autoPhase"></div>
+
+<div class="readout">
+  transform: translate3d(<span class="rx" id="ro_x">0</span>, <span class="ry" id="ro_y">0</span>, <span class="rz" id="ro_z">0</span>)<br>
+  factor: <span id="ro_f">1.000</span> &nbsp;→&nbsp; apparent size: <span id="ro_s">100</span>%
+</div>
+
+<script>
+const scene   = document.getElementById('scene');
+const wrapper = document.getElementById('wrapper');
+const shadow  = document.getElementById('shadow');
+const sx = document.getElementById('sx');
+const sy = document.getElementById('sy');
+const sz = document.getElementById('sz');
+const persp = document.getElementById('persp');
+
+function update() {
+  const x = +sx.value;
+  const y = +sy.value;
+  const z = +sz.value;
+  const p = +persp.value;
+
+  scene.style.perspective = p + 'px';
+  wrapper.style.transform = `translate3d(${x}px, ${y}px, ${z}px)`;
+
+  // shadow stays on the ground plane (y=0), tracks x, shrinks with z
+  const factor = p / (p - z);
+  const shadowScale = Math.max(0.2, factor);
+  shadow.style.transform =
+    `translate3d(${x * factor}px, 0px, 0px) scale(${shadowScale})`;
+  shadow.style.opacity = Math.max(0, 0.3 * (1 - y / 100));
+
+  // update labels
+  document.getElementById('xVal').textContent = x;
+  document.getElementById('yVal').textContent = y;
+  document.getElementById('zVal').textContent = z;
+  document.getElementById('pVal').textContent = p;
+
+  // readout
+  document.getElementById('ro_x').textContent = x + 'px';
+  document.getElementById('ro_y').textContent = y + 'px';
+  document.getElementById('ro_z').textContent = z + 'px';
+  document.getElementById('ro_f').textContent = factor.toFixed(3);
+  document.getElementById('ro_s').textContent = (factor * 100).toFixed(0);
+}
+
+sx.addEventListener('input', update);
+sy.addEventListener('input', update);
+sz.addEventListener('input', update);
+persp.addEventListener('input', update);
+update();
+
+/* ── auto move ── */
+const autoBtn = document.getElementById('autoBtn');
+const autoPhase = document.getElementById('autoPhase');
+let autoActive = false;
+let autoRaf = null;
+
+// easeInOut (smoothstep)
+function easeInOut(t) { return t * t * (3 - 2 * t); }
+
+// sequence: for each axis, go 0 → +100 → -100 → 0
+// each leg takes `legDur` ms
+const legDur = 1200;
+const phases = [
+  // axis,  from,  to,    label
+  { slider: sx, from: 0,    to: 100,  label: 'X → +100' },
+  { slider: sx, from: 100,  to: -100, label: 'X → −100' },
+  { slider: sx, from: -100, to: 0,    label: 'X → 0' },
+  { slider: sy, from: 0,    to: 100,  label: 'Y → +100' },
+  { slider: sy, from: 100,  to: -100, label: 'Y → −100' },
+  { slider: sy, from: -100, to: 0,    label: 'Y → 0' },
+  { slider: sz, from: 0,    to: 100,  label: 'Z → +100' },
+  { slider: sz, from: 100,  to: -100, label: 'Z → −100' },
+  { slider: sz, from: -100, to: 0,    label: 'Z → 0' },
+];
+
+let phaseIdx = 0;
+let phaseStart = 0;
+
+function autoTick(now) {
+  if (!autoActive) return;
+
+  if (!phaseStart) phaseStart = now;
+  const elapsed = now - phaseStart;
+  const t = Math.min(elapsed / legDur, 1);
+  const eased = easeInOut(t);
+
+  const phase = phases[phaseIdx];
+  const val = phase.from + (phase.to - phase.from) * eased;
+  phase.slider.value = Math.round(val);
+  autoPhase.textContent = phase.label;
+  update();
+
+  if (t >= 1) {
+    phase.slider.value = phase.to;
+    update();
+    phaseIdx = (phaseIdx + 1) % phases.length;
+    phaseStart = 0;
+  }
+
+  autoRaf = requestAnimationFrame(autoTick);
+}
+
+autoBtn.addEventListener('click', () => {
+  autoActive = !autoActive;
+  autoBtn.classList.toggle('active', autoActive);
+  if (autoActive) {
+    phaseIdx = 0;
+    phaseStart = 0;
+    sx.value = 0; sy.value = 0; sz.value = 0;
+    update();
+    autoRaf = requestAnimationFrame(autoTick);
+  } else {
+    cancelAnimationFrame(autoRaf);
+    autoPhase.textContent = '';
+  }
+});
+</script>
+</body>
+</html>
