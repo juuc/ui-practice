@@ -39,7 +39,7 @@
     inset:0;
     margin:-60px;
     pointer-events:none;
-    z-index:1;
+    z-index:3;
   }
   .eb-canvas{
     display:block;
@@ -78,6 +78,10 @@
     background:rgba(10,10,14,.85);
     border-radius:inherit;
     backdrop-filter:blur(12px);
+    border:1px solid color-mix(in srgb, var(--electric-color, var(--accent)) 25%, transparent);
+    box-shadow:
+      0 0 12px color-mix(in srgb, var(--electric-color, var(--accent)) 15%, transparent),
+      inset 0 0 12px color-mix(in srgb, var(--electric-color, var(--accent)) 5%, transparent);
   }
 
   /* ── demo cards ── */
@@ -152,7 +156,7 @@
     </div>
   </div>
 
-  <div class="electric-border" data-electric data-color="#FF2755" data-chaos="0.25" data-speed="1.5" style="border-radius:16px">
+  <div class="electric-border" data-electric data-color="#FF2755" data-chaos="0.14" data-speed="1.5" style="border-radius:16px">
     <div class="eb-canvas-container"><canvas class="eb-canvas"></canvas></div>
     <div class="eb-layers"><div class="eb-glow-1"></div><div class="eb-glow-2"></div><div class="eb-background-glow"></div></div>
     <div class="eb-content card-sm">
@@ -212,7 +216,7 @@ function noise2D(x, y) {
   const ux = fx * fx * (3 - 2 * fx);
   const uy = fy * fy * (3 - 2 * fy);
 
-  return a * (1 - ux) * (1 - uy) + b * ux * (1 - uy) + c * (1 - ux) * uy + d * ux * uy;
+  return a * (1 - ux) * (1 - uy) + b * ux * (1 - uy) + c * (1 - ux) * uy + d * ux * uy - 0.5;
 }
 
 function octavedNoise(x, octaves, lacunarity, gain, amp, freq, time, seed, flatness) {
@@ -341,9 +345,11 @@ function draw(now) {
     ctx.scale(dpr, dpr);
 
     ctx.strokeStyle = inst.color;
-    ctx.lineWidth = 1;
+    ctx.lineWidth = 1.5;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
+    ctx.shadowColor = inst.color;
+    ctx.shadowBlur = 15;
 
     const left = BORDER_OFFSET;
     const top = BORDER_OFFSET;
