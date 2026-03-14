@@ -2,25 +2,25 @@
 
 Vanilla JS/CSS implementations of interactive UI effects. No frameworks, no dependencies — just raw browser APIs.
 
-Each project is a self-contained `index.html` that can be opened directly or served locally.
+Each project is a self-contained `index.html` — no build step. Try them live via GitHub Pages or clone and open locally.
 
 ## Projects
 
-| # | Project | Technique | Demo |
-|---|---------|-----------|------|
-| 01 | [grid-focus](./grid-focus/) | Canvas, polar shapes, iterative overlap resolution | Scrollable bubble grid with organic shape morphing |
-| 02 | [card-swap](./card-swap/) | CSS 3D transforms, perspective, custom tween engine | Card stack with elastic swap animation |
-| 03 | [electric-border](./electric-border/) | Canvas, octaved value noise, path displacement | Noise-displaced animated border with glow |
+| # | Project | Technique | Live Demo |
+|---|---------|-----------|-----------|
+| 01 | [grid-focus](./grid-focus/) | Canvas, polar shapes, iterative overlap resolution | [Try it](https://juuc.github.io/ui-practice/grid-focus/) |
+| 02 | [card-swap](./card-swap/) | CSS 3D transforms, perspective, custom tween engine | [Try it](https://juuc.github.io/ui-practice/card-swap/) |
+| 03 | [electric-border](./electric-border/) | Canvas, octaved value noise, path displacement | [Try it](https://juuc.github.io/ui-practice/electric-border/) |
 
 ## Ad-hoc
 
 Small exploratory demos that don't warrant their own project.
 
-| Demo | What it shows |
-|------|---------------|
-| [axis-ball](./ad-hoc/axis-ball.html) | Interactive `translate3d` + `perspective` visualizer |
+| Demo | What it shows | Live Demo |
+|------|---------------|-----------|
+| [axis-ball](./ad-hoc/axis-ball.html) | Interactive `translate3d` + `perspective` visualizer | [Try it](https://juuc.github.io/ui-practice/ad-hoc/axis-ball.html) |
 
-## Running
+## Running locally
 
 ```bash
 cd <project>
