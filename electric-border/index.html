@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="dark light">
+<title>Electric Border</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+
+  :root{
+    --bg:#060608;
+    --text:#e0ddd8;
+    --text-dim:rgba(224,221,216,.35);
+    --accent:#5227FF;
+  }
+
+  body{
+    background:var(--bg);color:var(--text);
+    font-family:'DM Sans',sans-serif;
+    min-height:100vh;
+    display:flex;flex-direction:column;
+    align-items:center;justify-content:center;
+    gap:60px;
+    padding:60px 24px;
+    -webkit-font-smoothing:antialiased;
+  }
+
+  /* ── electric border component ── */
+  .electric-border{
+    position:relative;
+    display:inline-block;
+  }
+
+  .eb-canvas-container{
+    position:absolute;
+    inset:0;
+    margin:-60px;
+    pointer-events:none;
+    z-index:1;
+  }
+  .eb-canvas{
+    display:block;
+    width:100%;height:100%;
+  }
+
+  .eb-layers{
+    position:absolute;inset:0;
+    pointer-events:none;z-index:0;
+    border-radius:inherit;
+    overflow:hidden;
+  }
+  .eb-glow-1{
+    position:absolute;inset:-2px;
+    border-radius:inherit;
+    border:2px solid var(--electric-color, var(--accent));
+    opacity:.15;
+    filter:blur(8px);
+  }
+  .eb-glow-2{
+    position:absolute;inset:-4px;
+    border-radius:inherit;
+    border:2px solid var(--electric-color, var(--accent));
+    opacity:.08;
+    filter:blur(20px);
+  }
+  .eb-background-glow{
+    position:absolute;inset:0;
+    border-radius:inherit;
+    background:radial-gradient(ellipse at center, var(--electric-color, var(--accent)), transparent 70%);
+    opacity:.04;
+  }
+
+  .eb-content{
+    position:relative;z-index:2;
+    background:rgba(10,10,14,.85);
+    border-radius:inherit;
+    backdrop-filter:blur(12px);
+  }
+
+  /* ── demo cards ── */
+  .demo{display:flex;flex-wrap:wrap;gap:40px;align-items:center;justify-content:center}
+
+  .card{
+    width:360px;padding:40px;
+    border-radius:24px;
+  }
+  .card h2{
+    font-family:'Instrument Serif',serif;
+    font-size:28px;font-weight:400;
+    margin-bottom:12px;
+  }
+  .card p{
+    font-size:14px;font-weight:300;
+    line-height:1.7;color:var(--text-dim);
+  }
+
+  .card-sm{
+    width:220px;padding:28px;
+    border-radius:16px;
+    text-align:center;
+  }
+  .card-sm h3{
+    font-family:'Instrument Serif',serif;
+    font-size:20px;font-weight:400;
+    margin-bottom:8px;
+  }
+  .card-sm p{
+    font-size:12px;font-weight:300;
+    line-height:1.6;color:var(--text-dim);
+  }
+
+  /* ── controls ── */
+  .controls{
+    display:flex;flex-wrap:wrap;gap:20px;
+    align-items:flex-end;justify-content:center;
+  }
+  .control{display:flex;flex-direction:column;gap:6px}
+  .control label{
+    font-size:10px;letter-spacing:.15em;
+    text-transform:uppercase;color:var(--text-dim);
+  }
+  .control label span{color:var(--text)}
+  input[type=range]{
+    -webkit-appearance:none;width:140px;height:3px;
+    background:#1a1a22;border-radius:2px;outline:none;
+  }
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none;width:12px;height:12px;
+    border-radius:50%;background:var(--accent);cursor:pointer;
+  }
+  input[type=color]{
+    -webkit-appearance:none;width:32px;height:32px;
+    border:1px solid #222;border-radius:8px;
+    background:transparent;cursor:pointer;padding:0;
+  }
+  input[type=color]::-webkit-color-swatch-wrapper{padding:2px}
+  input[type=color]::-webkit-color-swatch{border:none;border-radius:6px}
+</style>
+</head>
+<body>
+
+<div class="demo">
+  <div class="electric-border" data-electric data-color="#5227FF" data-chaos="0.12" data-speed="1" style="border-radius:24px">
+    <div class="eb-canvas-container"><canvas class="eb-canvas"></canvas></div>
+    <div class="eb-layers"><div class="eb-glow-1"></div><div class="eb-glow-2"></div><div class="eb-background-glow"></div></div>
+    <div class="eb-content card">
+      <h2>Electric Border</h2>
+      <p>Noise-displaced rounded rectangle rendered on canvas. 10 octaves of value noise create organic, jittery energy.</p>
+    </div>
+  </div>
+
+  <div class="electric-border" data-electric data-color="#FF2755" data-chaos="0.25" data-speed="1.5" style="border-radius:16px">
+    <div class="eb-canvas-container"><canvas class="eb-canvas"></canvas></div>
+    <div class="eb-layers"><div class="eb-glow-1"></div><div class="eb-glow-2"></div><div class="eb-background-glow"></div></div>
+    <div class="eb-content card-sm">
+      <h3>High Chaos</h3>
+      <p>More noise amplitude, faster speed.</p>
+    </div>
+  </div>
+
+  <div class="electric-border" data-electric data-color="#22FFAA" data-chaos="0.06" data-speed="0.5" style="border-radius:32px">
+    <div class="eb-canvas-container"><canvas class="eb-canvas"></canvas></div>
+    <div class="eb-layers"><div class="eb-glow-1"></div><div class="eb-glow-2"></div><div class="eb-background-glow"></div></div>
+    <div class="eb-content card-sm">
+      <h3>Calm</h3>
+      <p>Low chaos, slow drift.</p>
+    </div>
+  </div>
+</div>
+
+<div class="controls">
+  <div class="control">
+    <label>Color</label>
+    <input type="color" id="cColor" value="#5227FF">
+  </div>
+  <div class="control">
+    <label>Speed: <span id="vSpeed">1.0</span></label>
+    <input type="range" id="cSpeed" min="0.1" max="4" step="0.1" value="1">
+  </div>
+  <div class="control">
+    <label>Chaos: <span id="vChaos">0.12</span></label>
+    <input type="range" id="cChaos" min="0.01" max="0.5" step="0.01" value="0.12">
+  </div>
+  <div class="control">
+    <label>Radius: <span id="vRadius">24</span></label>
+    <input type="range" id="cRadius" min="0" max="60" step="1" value="24">
+  </div>
+</div>
+
+<script>
+/* ─────────────────────────────────────
+   NOISE
+   ───────────────────────────────────── */
+function pseudoRandom(x) {
+  return ((Math.sin(x * 12.9898) * 43758.5453) % 1 + 1) % 1;
+}
+
+function noise2D(x, y) {
+  const i = Math.floor(x);
+  const j = Math.floor(y);
+  const fx = x - i;
+  const fy = y - j;
+
+  const a = pseudoRandom(i + j * 57);
+  const b = pseudoRandom(i + 1 + j * 57);
+  const c = pseudoRandom(i + (j + 1) * 57);
+  const d = pseudoRandom(i + 1 + (j + 1) * 57);
+
+  const ux = fx * fx * (3 - 2 * fx);
+  const uy = fy * fy * (3 - 2 * fy);
+
+  return a * (1 - ux) * (1 - uy) + b * ux * (1 - uy) + c * (1 - ux) * uy + d * ux * uy;
+}
+
+function octavedNoise(x, octaves, lacunarity, gain, amp, freq, time, seed, flatness) {
+  let y = 0;
+  let a = amp;
+  let f = freq;
+  for (let i = 0; i < octaves; i++) {
+    const oa = i === 0 ? a * flatness : a;
+    y += oa * noise2D(f * x + seed * 100, time * f * 0.3);
+    f *= lacunarity;
+    a *= gain;
+  }
+  return y;
+}
+
+/* ─────────────────────────────────────
+   ROUNDED RECT PATH
+   ───────────────────────────────────── */
+function cornerPoint(cx, cy, r, startAngle, arcLen, progress) {
+  const angle = startAngle + progress * arcLen;
+  return { x: cx + r * Math.cos(angle), y: cy + r * Math.sin(angle) };
+}
+
+function roundedRectPoint(t, left, top, w, h, r) {
+  const sw = w - 2 * r;
+  const sh = h - 2 * r;
+  const ca = (Math.PI * r) / 2;
+  const perim = 2 * sw + 2 * sh + 4 * ca;
+  const d = t * perim;
+  let acc = 0;
+
+  // top edge
+  if (d <= acc + sw) { const p = (d - acc) / sw; return { x: left + r + p * sw, y: top }; }
+  acc += sw;
+  // top-right corner
+  if (d <= acc + ca) { return cornerPoint(left + w - r, top + r, r, -Math.PI / 2, Math.PI / 2, (d - acc) / ca); }
+  acc += ca;
+  // right edge
+  if (d <= acc + sh) { const p = (d - acc) / sh; return { x: left + w, y: top + r + p * sh }; }
+  acc += sh;
+  // bottom-right corner
+  if (d <= acc + ca) { return cornerPoint(left + w - r, top + h - r, r, 0, Math.PI / 2, (d - acc) / ca); }
+  acc += ca;
+  // bottom edge
+  if (d <= acc + sw) { const p = (d - acc) / sw; return { x: left + w - r - p * sw, y: top + h }; }
+  acc += sw;
+  // bottom-left corner
+  if (d <= acc + ca) { return cornerPoint(left + r, top + h - r, r, Math.PI / 2, Math.PI / 2, (d - acc) / ca); }
+  acc += ca;
+  // left edge
+  if (d <= acc + sh) { const p = (d - acc) / sh; return { x: left, y: top + h - r - p * sh }; }
+  acc += sh;
+  // top-left corner
+  return cornerPoint(left + r, top + r, r, Math.PI, Math.PI / 2, (d - acc) / ca);
+}
+
+/* ─────────────────────────────────────
+   ELECTRIC BORDER INSTANCES
+   ───────────────────────────────────── */
+const instances = [];
+
+document.querySelectorAll('[data-electric]').forEach(container => {
+  const canvas = container.querySelector('.eb-canvas');
+  const ctx = canvas.getContext('2d');
+
+  const instance = {
+    container,
+    canvas,
+    ctx,
+    color: container.dataset.color || '#5227FF',
+    speed: parseFloat(container.dataset.speed) || 1,
+    chaos: parseFloat(container.dataset.chaos) || 0.12,
+    borderRadius: parseInt(getComputedStyle(container).borderRadius) || 24,
+    time: 0,
+    width: 0,
+    height: 0,
+  };
+
+  // set CSS custom property for glow layers
+  container.style.setProperty('--electric-color', instance.color);
+
+  const borderOffset = 60;
+
+  function updateSize() {
+    const rect = container.getBoundingClientRect();
+    const w = rect.width + borderOffset * 2;
+    const h = rect.height + borderOffset * 2;
+    const dpr = Math.min(devicePixelRatio || 1, 2);
+    canvas.width = w * dpr;
+    canvas.height = h * dpr;
+    canvas.style.width = w + 'px';
+    canvas.style.height = h + 'px';
+    instance.width = w;
+    instance.height = h;
+    instance.dpr = dpr;
+  }
+
+  updateSize();
+  new ResizeObserver(updateSize).observe(container);
+  instances.push(instance);
+});
+
+/* ─────────────────────────────────────
+   RENDER LOOP
+   ───────────────────────────────────── */
+const OCTAVES = 10;
+const LACUNARITY = 1.6;
+const GAIN = 0.7;
+const FREQUENCY = 10;
+const FLATNESS = 0;
+const DISPLACEMENT = 60;
+const BORDER_OFFSET = 60;
+
+let lastTime = 0;
+
+function draw(now) {
+  const dt = (now - lastTime) / 1000;
+  lastTime = now;
+
+  for (const inst of instances) {
+    const { canvas, ctx, width, height, dpr } = inst;
+    inst.time += dt * inst.speed;
+
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.scale(dpr, dpr);
+
+    ctx.strokeStyle = inst.color;
+    ctx.lineWidth = 1;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+
+    const left = BORDER_OFFSET;
+    const top = BORDER_OFFSET;
+    const bw = width - 2 * BORDER_OFFSET;
+    const bh = height - 2 * BORDER_OFFSET;
+    const maxR = Math.min(bw, bh) / 2;
+    const r = Math.min(inst.borderRadius, maxR);
+    const perim = 2 * (bw + bh) + 2 * Math.PI * r;
+    const samples = Math.floor(perim / 2);
+
+    ctx.beginPath();
+    for (let i = 0; i <= samples; i++) {
+      const progress = i / samples;
+      const pt = roundedRectPoint(progress, left, top, bw, bh, r);
+
+      const nx = octavedNoise(progress * 8, OCTAVES, LACUNARITY, GAIN, inst.chaos, FREQUENCY, inst.time, 0, FLATNESS);
+      const ny = octavedNoise(progress * 8, OCTAVES, LACUNARITY, GAIN, inst.chaos, FREQUENCY, inst.time, 1, FLATNESS);
+
+      const dx = pt.x + nx * DISPLACEMENT;
+      const dy = pt.y + ny * DISPLACEMENT;
+
+      if (i === 0) ctx.moveTo(dx, dy);
+      else ctx.lineTo(dx, dy);
+    }
+    ctx.closePath();
+    ctx.stroke();
+  }
+
+  requestAnimationFrame(draw);
+}
+requestAnimationFrame(draw);
+
+/* ─────────────────────────────────────
+   CONTROLS (apply to first card only)
+   ───────────────────────────────────── */
+const first = instances[0];
+const cColor = document.getElementById('cColor');
+const cSpeed = document.getElementById('cSpeed');
+const cChaos = document.getElementById('cChaos');
+const cRadius = document.getElementById('cRadius');
+
+cColor.addEventListener('input', () => {
+  first.color = cColor.value;
+  first.container.style.setProperty('--electric-color', cColor.value);
+});
+cSpeed.addEventListener('input', () => {
+  first.speed = parseFloat(cSpeed.value);
+  document.getElementById('vSpeed').textContent = cSpeed.value;
+});
+cChaos.addEventListener('input', () => {
+  first.chaos = parseFloat(cChaos.value);
+  document.getElementById('vChaos').textContent = cChaos.value;
+});
+cRadius.addEventListener('input', () => {
+  first.borderRadius = parseInt(cRadius.value);
+  first.container.style.borderRadius = cRadius.value + 'px';
+  document.getElementById('vRadius').textContent = cRadius.value;
+});
+</script>
+</body>
+</html>
