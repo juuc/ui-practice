@@ -1,0 +1,859 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Page Curl Effect</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+    background: #0a0a0f;
+    color: #e0e0e0;
+    line-height: 1.6;
+    overflow-x: hidden;
+  }
+
+  /* ── Hero section ─────────────────────────────────────────── */
+  .hero {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 48px 24px 40px;
+    background: linear-gradient(180deg, #12121a 0%, #0a0a0f 100%);
+  }
+  .hero h1 {
+    font-size: 28px;
+    font-weight: 700;
+    color: #fff;
+    letter-spacing: -0.5px;
+    margin-bottom: 6px;
+  }
+  .hero p {
+    color: #888;
+    font-size: 14px;
+    margin-bottom: 24px;
+  }
+  .hero canvas {
+    border-radius: 4px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+    cursor: grab;
+  }
+  .hero canvas:active { cursor: grabbing; }
+  .hero-status {
+    margin-top: 12px;
+    font-size: 12px;
+    color: #555;
+    font-style: italic;
+  }
+
+  /* ── Divider ──────────────────────────────────────────────── */
+  .divider {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 48px 24px 0;
+  }
+  .divider h2 {
+    font-size: 20px;
+    font-weight: 700;
+    color: #fff;
+    margin-bottom: 4px;
+  }
+  .divider p {
+    font-size: 13px;
+    color: #666;
+  }
+
+  /* ── Steps ────────────────────────────────────────────────── */
+  .step-container {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 24px;
+  }
+  .step {
+    margin-bottom: 48px;
+    border: 1px solid #1e1e2e;
+    border-radius: 12px;
+    overflow: hidden;
+    background: #111118;
+  }
+  .step-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 20px;
+    background: #16161f;
+    border-bottom: 1px solid #1e1e2e;
+  }
+  .step-number {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+  .step:nth-child(1) .step-number { background: #2d4a3e; color: #5eead4; }
+  .step:nth-child(2) .step-number { background: #3b3a2d; color: #fbbf24; }
+  .step:nth-child(3) .step-number { background: #2d3548; color: #60a5fa; }
+  .step:nth-child(4) .step-number { background: #3d2d48; color: #c084fc; }
+  .step:nth-child(5) .step-number { background: #482d2d; color: #f87171; }
+  .step-title { font-size: 15px; font-weight: 600; color: #fff; }
+  .step-body { padding: 20px; }
+  .step-desc {
+    font-size: 13px;
+    color: #999;
+    margin-bottom: 16px;
+    line-height: 1.7;
+  }
+  .step-desc code {
+    background: #1e1e2e;
+    padding: 2px 6px;
+    border-radius: 4px;
+    color: #c084fc;
+    font-size: 12px;
+  }
+  .canvas-wrap {
+    display: flex;
+    justify-content: center;
+    padding: 12px;
+    background: #0d0d14;
+    border-radius: 8px;
+  }
+  .step canvas {
+    border-radius: 6px;
+    cursor: crosshair;
+  }
+  .formula-box {
+    margin-top: 12px;
+    padding: 12px 16px;
+    background: #0d0d14;
+    border-radius: 8px;
+    border-left: 3px solid #333;
+    font-size: 12px;
+    color: #aaa;
+    white-space: pre-wrap;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+  }
+  .formula-box .hl-fn { color: #60a5fa; }
+  .formula-box .hl-var { color: #fbbf24; }
+  .formula-box .hl-num { color: #5eead4; }
+  .formula-box .hl-comment { color: #555; }
+  .legend {
+    display: flex;
+    gap: 16px;
+    margin-top: 12px;
+    flex-wrap: wrap;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: #999;
+  }
+  .legend-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
+  }
+  .interact-hint {
+    text-align: center;
+    font-size: 11px;
+    color: #555;
+    margin-top: 8px;
+    font-style: italic;
+  }
+  .final-step .canvas-wrap {
+    background: linear-gradient(135deg, #0d0d14 0%, #111120 100%);
+  }
+</style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════════════════════════════
+     HERO: Interactive page curl
+     ════════════════════════════════════════════════════════════ -->
+<div class="hero">
+  <h1>Page Curl Effect</h1>
+  <p>Drag any edge to curl the page</p>
+  <canvas id="hero-canvas" width="500" height="680"></canvas>
+  <div class="hero-status" id="hero-status">drag any edge</div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════
+     STEPS: How it works
+     ════════════════════════════════════════════════════════════ -->
+<div class="divider">
+  <h2>How It Works</h2>
+  <p>Drag on each canvas to interact with individual rendering steps</p>
+</div>
+
+<div class="step-container">
+
+  <!-- STEP 1 -->
+  <div class="step">
+    <div class="step-header">
+      <div class="step-number">1</div>
+      <div class="step-title">Fold Line & Signed Distance</div>
+    </div>
+    <div class="step-body">
+      <div class="step-desc">
+        The <b>fold line</b> is the perpendicular bisector between the corner and the drag tip.
+        Every pixel calculates its <code>signed distance</code> to this line.<br>
+        <b>Positive</b> = corner side (paper lifted away) &nbsp;|&nbsp;
+        <b>Negative + reflected in bounds</b> = covered by flap &nbsp;|&nbsp;
+        <b>Negative + out of bounds</b> = flat page.
+      </div>
+      <div class="canvas-wrap"><canvas id="c1" width="400" height="300"></canvas></div>
+      <div class="legend">
+        <div class="legend-item"><div class="legend-dot" style="background:#5eead4"></div> Flat page (dist &lt; 0, no flap)</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#fbbf24"></div> Flap coverage (dist &lt; 0, reflected in bounds)</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#333"></div> Corner lifted (dist &gt; 0, background)</div>
+      </div>
+      <div class="formula-box"><span class="hl-comment">// fold line = perpendicular bisector of corner &harr; tip</span>
+<span class="hl-var">mid</span> = (corner + tip) / <span class="hl-num">2</span>
+<span class="hl-var">fn</span> = <span class="hl-fn">normalize</span>(corner - tip)
+<span class="hl-comment">// positive = corner side (lifted), negative = flat side</span>
+<span class="hl-var">dist</span> = <span class="hl-fn">dot</span>(pixel - mid, fn)
+<span class="hl-comment">// reflection: where does the flap pixel come from?</span>
+<span class="hl-var">reflPos</span> = pixel - <span class="hl-num">2</span> * dist * fn</div>
+      <div class="interact-hint">drag to move the fold line</div>
+    </div>
+  </div>
+
+  <!-- STEP 2 -->
+  <div class="step">
+    <div class="step-header">
+      <div class="step-number">2</div>
+      <div class="step-title">Reflection-Based Texture Mapping</div>
+    </div>
+    <div class="step-body">
+      <div class="step-desc">
+        The flap's texture comes from <b>reflecting</b> each pixel across the fold line.
+        <code>reflPos = pixel - 2 * dist * fn</code> gives the source coordinate.
+        This guarantees the content <b>matches perfectly</b> when the page flattens.
+      </div>
+      <div class="canvas-wrap"><canvas id="c2" width="400" height="300"></canvas></div>
+      <div class="formula-box"><span class="hl-comment">// reflect pixel across fold line to get source coord</span>
+<span class="hl-var">reflX</span> = px - <span class="hl-num">2</span> * dist * fn.x
+<span class="hl-var">reflY</span> = py - <span class="hl-num">2</span> * dist * fn.y
+
+<span class="hl-comment">// if reflected point is within page bounds &rarr; flap covers this pixel</span>
+<span class="hl-comment">// sample texture at (reflX, reflY) &mdash; always matches when flat</span></div>
+      <div class="interact-hint">drag to see reflection mapping in action</div>
+    </div>
+  </div>
+
+  <!-- STEP 3 -->
+  <div class="step">
+    <div class="step-header">
+      <div class="step-number">3</div>
+      <div class="step-title">Shadow & Depth</div>
+    </div>
+    <div class="step-body">
+      <div class="step-desc">
+        Two shadow effects create depth: a <b>crease shadow</b> right at the fold line
+        (paper curves away from viewer), and a <b>cylinder gradient</b> across the flap
+        simulating how light falls on a curved surface.
+      </div>
+      <div class="canvas-wrap"><canvas id="c3" width="400" height="300"></canvas></div>
+      <div class="formula-box"><span class="hl-comment">// crease shadow: darkest right at the fold line</span>
+<span class="hl-var">crease</span> = absDist < <span class="hl-num">15</span> ? <span class="hl-num">0.6</span> + <span class="hl-num">0.4</span> * (absDist / <span class="hl-num">15</span>) : <span class="hl-num">1.0</span>
+
+<span class="hl-comment">// cylinder gradient: simulates light on curved surface</span>
+<span class="hl-var">cylinder</span> = <span class="hl-num">0.5</span> + <span class="hl-num">0.5</span> * <span class="hl-fn">sin</span>(t * <span class="hl-num">&pi;/2</span> + <span class="hl-num">0.2</span>)
+
+<span class="hl-var">finalColor</span> = textureColor * crease * cylinder</div>
+      <div class="interact-hint">drag to see shadow response</div>
+    </div>
+  </div>
+
+  <!-- STEP 4 -->
+  <div class="step">
+    <div class="step-header">
+      <div class="step-number">4</div>
+      <div class="step-title">Backface Rendering</div>
+    </div>
+    <div class="step-body">
+      <div class="step-desc">
+        The folded flap shows the <b>back side</b> of the paper.
+        The reflected texture is tinted grey-blue to distinguish it from the front,
+        simulating real paper with a visible front/back difference.
+      </div>
+      <div class="canvas-wrap"><canvas id="c4" width="400" height="300"></canvas></div>
+      <div class="formula-box"><span class="hl-comment">// the entire flap is the backface (folded over)</span>
+<span class="hl-comment">// tint reflected texture to look like back of paper</span>
+<span class="hl-var">color.r</span> = src.r * <span class="hl-num">0.45</span> + <span class="hl-num">85</span>
+<span class="hl-var">color.g</span> = src.g * <span class="hl-num">0.45</span> + <span class="hl-num">80</span>
+<span class="hl-var">color.b</span> = src.b * <span class="hl-num">0.45</span> + <span class="hl-num">95</span>  <span class="hl-comment">// slight blue tint</span></div>
+      <div class="interact-hint">drag to reveal the backface</div>
+    </div>
+  </div>
+
+  <!-- STEP 5: FINAL -->
+  <div class="step final-step">
+    <div class="step-header">
+      <div class="step-number">5</div>
+      <div class="step-title">All Combined &mdash; Final Page Curl</div>
+    </div>
+    <div class="step-body">
+      <div class="step-desc">
+        All four steps combined: <b>region classification</b> &rarr; <b>reflection mapping</b> &rarr; <b>shadow</b> &rarr; <b>backface</b>.
+        This runs per-pixel on the GPU every frame. In a shader, Reanimated shared values
+        feed <code>u_currPos</code> directly on the UI thread &mdash; no JS bridge overhead.
+      </div>
+      <div class="canvas-wrap"><canvas id="c5" width="500" height="380"></canvas></div>
+      <div class="formula-box"><span class="hl-comment">// Per-pixel decision tree (runs on GPU)</span>
+<span class="hl-fn">if</span> (dist > <span class="hl-num">0</span>)                        <span class="hl-comment">&rarr; background (paper lifted away)</span>
+<span class="hl-fn">else if</span> (reflected in bounds)       <span class="hl-comment">&rarr; backface texture + shadow</span>
+<span class="hl-fn">else</span>                               <span class="hl-comment">&rarr; flat page (+ shadow near fold)</span></div>
+      <div class="interact-hint">drag anywhere to curl the page</div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+// Shared utilities
+// ═══════════════════════════════════════════════════════════════
+const PI = Math.PI;
+
+function normalize(x, y) {
+  const len = Math.sqrt(x * x + y * y) || 1;
+  return { x: x / len, y: y / len };
+}
+
+function dot(ax, ay, bx, by) { return ax * bx + ay * by; }
+
+function ease(t) {
+  return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+}
+
+function getMousePos(canvas, e) {
+  const rect = canvas.getBoundingClientRect();
+  const cx = e.touches ? e.touches[0].clientX : e.clientX;
+  const cy = e.touches ? e.touches[0].clientY : e.clientY;
+  return {
+    x: (cx - rect.left) * (canvas.width / rect.width),
+    y: (cy - rect.top) * (canvas.height / rect.height),
+  };
+}
+
+function setupDrag(canvas, onMove) {
+  let dragging = false;
+  const start = (e) => { dragging = true; onMove(getMousePos(canvas, e)); e.preventDefault(); };
+  const move = (e) => { if (dragging) { onMove(getMousePos(canvas, e)); e.preventDefault(); } };
+  const end = () => { dragging = false; };
+  canvas.addEventListener('mousedown', start);
+  canvas.addEventListener('mousemove', move);
+  canvas.addEventListener('mouseup', end);
+  canvas.addEventListener('mouseleave', end);
+  canvas.addEventListener('touchstart', start, { passive: false });
+  canvas.addEventListener('touchmove', move, { passive: false });
+  canvas.addEventListener('touchend', end);
+}
+
+// ── Page texture generator ──────────────────────────────────
+function buildPageTexture(w, h) {
+  const off = document.createElement('canvas');
+  off.width = w; off.height = h;
+  const c = off.getContext('2d');
+
+  c.fillStyle = '#faf6ee';
+  c.fillRect(0, 0, w, h);
+
+  for (let i = 0; i < w * h * 0.025; i++) {
+    c.fillStyle = `rgba(0,0,0,${Math.random() * 0.02})`;
+    c.fillRect(Math.random() * w, Math.random() * h, 1, 1);
+  }
+
+  c.strokeStyle = '#e0dbd0';
+  c.lineWidth = 0.5;
+  for (let y = 60; y < h - 30; y += 26) {
+    c.beginPath(); c.moveTo(40, y); c.lineTo(w - 40, y); c.stroke();
+  }
+
+  c.strokeStyle = '#e8a0a0';
+  c.lineWidth = 1.2;
+  c.beginPath(); c.moveTo(56, 0); c.lineTo(56, h); c.stroke();
+
+  c.fillStyle = '#2a2a2a';
+  c.font = 'bold ' + Math.round(w * 0.044) + 'px Georgia, serif';
+  c.fillText('Page Curl Effect', 65, 50);
+
+  c.font = Math.round(w * 0.028) + 'px Georgia, serif';
+  c.fillStyle = '#444';
+  const lines = [
+    'Fold-line reflection model for',
+    'per-pixel page curl rendering.',
+    '',
+    'The fold line is the perpendicular',
+    'bisector of corner and drag tip.',
+    '',
+    'Each pixel is classified into one',
+    'of three regions: flat page, flap',
+    '(backface), or background.',
+    '',
+    'Texture mapping uses reflection',
+    'across the fold line, guaranteeing',
+    'content always matches when flat.',
+    '',
+    'Shadow = crease + cylinder gradient.',
+    'Backface = grey-blue tinted texture.',
+  ];
+  lines.forEach((l, i) => c.fillText(l, 65, 86 + i * 26));
+
+  return c.getImageData(0, 0, w, h);
+}
+
+// ── Fold-line math ──────────────────────────────────────────
+function foldParams(tipX, tipY, cornerX, cornerY) {
+  const dx = cornerX - tipX, dy = cornerY - tipY;
+  const fn = normalize(dx, dy);
+  return {
+    midX: (cornerX + tipX) / 2,
+    midY: (cornerY + tipY) / 2,
+    fn,
+    maxDist: Math.sqrt(dx * dx + dy * dy) / 2,
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════
+// HERO: Interactive edge-drag page curl
+// ═══════════════════════════════════════════════════════════════
+(function hero() {
+  const canvas = document.getElementById('hero-canvas');
+  const ctx = canvas.getContext('2d');
+  const statusEl = document.getElementById('hero-status');
+  const W = canvas.width, H = canvas.height;
+  const pageTex = buildPageTexture(W, H);
+
+  function renderFlat() {
+    ctx.putImageData(pageTex, 0, 0);
+    ctx.strokeStyle = 'rgba(0,0,0,0.1)';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(0, 0, W, H);
+  }
+
+  function renderCurl(tipX, tipY, cornerX, cornerY) {
+    const dx = cornerX - tipX, dy = cornerY - tipY;
+    if (dx * dx + dy * dy < 4) { renderFlat(); return; }
+
+    const { midX, midY, fn, maxDist } = foldParams(tipX, tipY, cornerX, cornerY);
+    const imgData = ctx.createImageData(W, H);
+    const d = imgData.data;
+    const src = pageTex.data;
+
+    for (let py = 0; py < H; py++) {
+      for (let px = 0; px < W; px++) {
+        const idx = (py * W + px) * 4;
+        const dist = dot(px - midX, py - midY, fn.x, fn.y);
+
+        if (dist > 0) {
+          const gx = px / W, gy = py / H;
+          const v = 22 + (gx + gy) * 6;
+          d[idx] = v; d[idx+1] = v; d[idx+2] = v + 3; d[idx+3] = 255;
+        } else {
+          const absDist = -dist;
+          const reflX = px - 2 * dist * fn.x;
+          const reflY = py - 2 * dist * fn.y;
+
+          if (reflX >= 0 && reflX < W && reflY >= 0 && reflY < H) {
+            const si = (Math.round(reflY) * W + Math.round(reflX)) * 4;
+            const t = Math.min(absDist / maxDist, 1);
+            const cylinder = 0.5 + 0.5 * Math.sin(t * PI * 0.5 + 0.2);
+            const crease = absDist < 15 ? 0.6 + 0.4 * (absDist / 15) : 1.0;
+            const sf = cylinder * crease;
+
+            d[idx]     = (src[si]     * 0.45 + 85) * sf;
+            d[idx + 1] = (src[si + 1] * 0.45 + 80) * sf;
+            d[idx + 2] = (src[si + 2] * 0.45 + 75) * sf;
+            d[idx + 3] = 255;
+          } else {
+            const si = (py * W + px) * 4;
+            let shadow = 1.0;
+            if (absDist < 30) shadow = 0.7 + 0.3 * (absDist / 30);
+            d[idx]     = src[si]     * shadow;
+            d[idx + 1] = src[si + 1] * shadow;
+            d[idx + 2] = src[si + 2] * shadow;
+            d[idx + 3] = 255;
+          }
+        }
+      }
+    }
+    ctx.putImageData(imgData, 0, 0);
+    ctx.strokeStyle = 'rgba(0,0,0,0.1)';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(0, 0, W, H);
+  }
+
+  // ── Edge-drag interaction ───────────────────────────────
+  let tipX = W, tipY = H;
+  let activeAnchor = null;
+  let dragging = false;
+  let snapAnim = null;
+  const EDGE_GRAB = 40, SNAP_MS = 400;
+
+  function distTo(ax, ay, bx, by) { return Math.sqrt((ax-bx)**2 + (ay-by)**2); }
+
+  function nearestEdge(px, py) {
+    const c = [
+      { x: Math.max(0, Math.min(W, px)), y: 0, dist: py },
+      { x: Math.max(0, Math.min(W, px)), y: H, dist: H - py },
+      { x: 0, y: Math.max(0, Math.min(H, py)), dist: px },
+      { x: W, y: Math.max(0, Math.min(H, py)), dist: W - px },
+    ];
+    c.sort((a, b) => a.dist - b.dist);
+    return c[0];
+  }
+
+  function onStart(e) {
+    const pos = getMousePos(canvas, e);
+    if (activeAnchor && distTo(pos.x, pos.y, tipX, tipY) < EDGE_GRAB * 2) {
+      dragging = true;
+      if (snapAnim) { cancelAnimationFrame(snapAnim); snapAnim = null; }
+      tipX = pos.x; tipY = pos.y;
+      renderCurl(tipX, tipY, activeAnchor.x, activeAnchor.y);
+      statusEl.textContent = 'dragging';
+      e.preventDefault();
+      return;
+    }
+    const edge = nearestEdge(pos.x, pos.y);
+    if (edge.dist < EDGE_GRAB) {
+      dragging = true;
+      activeAnchor = { x: edge.x, y: edge.y };
+      if (snapAnim) { cancelAnimationFrame(snapAnim); snapAnim = null; }
+      tipX = pos.x; tipY = pos.y;
+      renderCurl(tipX, tipY, activeAnchor.x, activeAnchor.y);
+      statusEl.textContent = 'dragging';
+      e.preventDefault();
+    }
+  }
+
+  function onMove(e) {
+    if (!dragging) return;
+    const pos = getMousePos(canvas, e);
+    tipX = pos.x; tipY = pos.y;
+    renderCurl(tipX, tipY, activeAnchor.x, activeAnchor.y);
+    e.preventDefault();
+  }
+
+  function onEnd() {
+    if (!dragging) return;
+    dragging = false;
+    const anchor = activeAnchor;
+    const fromX = tipX, fromY = tipY;
+    const startTime = performance.now();
+    statusEl.textContent = '';
+
+    function tick(now) {
+      const rawT = Math.min((now - startTime) / SNAP_MS, 1);
+      const t = ease(rawT);
+      tipX = fromX + (anchor.x - fromX) * t;
+      tipY = fromY + (anchor.y - fromY) * t;
+      renderCurl(tipX, tipY, anchor.x, anchor.y);
+      if (rawT < 1) {
+        snapAnim = requestAnimationFrame(tick);
+      } else {
+        snapAnim = null;
+        activeAnchor = null;
+        statusEl.textContent = 'drag any edge';
+      }
+    }
+    snapAnim = requestAnimationFrame(tick);
+  }
+
+  canvas.addEventListener('mousedown', onStart);
+  canvas.addEventListener('mousemove', onMove);
+  canvas.addEventListener('mouseup', onEnd);
+  canvas.addEventListener('mouseleave', onEnd);
+  canvas.addEventListener('touchstart', onStart, { passive: false });
+  canvas.addEventListener('touchmove', onMove, { passive: false });
+  canvas.addEventListener('touchend', onEnd);
+
+  renderFlat();
+})();
+
+// ═══════════════════════════════════════════════════════════════
+// STEP 1: Fold line & signed distance
+// ═══════════════════════════════════════════════════════════════
+(function step1() {
+  const canvas = document.getElementById('c1');
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  let tip = { x: W * 0.55, y: H * 0.5 };
+  const cX = W, cY = H;
+
+  function draw() {
+    const { midX, midY, fn, maxDist } = foldParams(tip.x, tip.y, cX, cY);
+    const imgData = ctx.createImageData(W, H);
+    const d = imgData.data;
+
+    for (let py = 0; py < H; py++) {
+      for (let px = 0; px < W; px++) {
+        const idx = (py * W + px) * 4;
+        const dist = dot(px - midX, py - midY, fn.x, fn.y);
+
+        if (dist > 0) {
+          const t = Math.min(dist / maxDist, 1);
+          d[idx] = 18 + t * 15; d[idx+1] = 18 + t * 25; d[idx+2] = 24 + t * 20; d[idx+3] = 255;
+        } else {
+          const reflX = px - 2 * dist * fn.x;
+          const reflY = py - 2 * dist * fn.y;
+          if (reflX >= 0 && reflX < W && reflY >= 0 && reflY < H) {
+            const t = Math.min(-dist / maxDist, 1);
+            d[idx] = 100 + t * 151; d[idx+1] = 80 + t * 111; d[idx+2] = 20 + t * 16; d[idx+3] = 255;
+          } else {
+            const t = Math.min(-dist / 200, 1);
+            d[idx] = 20 + t * 40; d[idx+1] = 60 + t * 140; d[idx+2] = 60 + t * 130; d[idx+3] = 255;
+          }
+        }
+      }
+    }
+    ctx.putImageData(imgData, 0, 0);
+
+    const perpX = -fn.y, perpY = fn.x;
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.setLineDash([6, 4]);
+    ctx.beginPath();
+    ctx.moveTo(midX + perpX * 400, midY + perpY * 400);
+    ctx.lineTo(midX - perpX * 400, midY - perpY * 400);
+    ctx.stroke(); ctx.setLineDash([]);
+
+    ctx.fillStyle = '#fff'; ctx.font = 'bold 11px monospace';
+    ctx.fillText('fold line', midX + perpX * 60 - 25, midY + perpY * 60 - 8);
+    ctx.beginPath(); ctx.arc(tip.x, tip.y, 5, 0, PI * 2); ctx.fill();
+  }
+
+  draw();
+  setupDrag(canvas, (pos) => { tip = pos; draw(); });
+})();
+
+// ═══════════════════════════════════════════════════════════════
+// STEP 2: Reflection-based texture mapping
+// ═══════════════════════════════════════════════════════════════
+(function step2() {
+  const canvas = document.getElementById('c2');
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  let tip = { x: W * 0.55, y: H * 0.5 };
+  const cX = W, cY = H;
+  const pageTex = buildPageTexture(W, H);
+
+  function draw() {
+    const { midX, midY, fn, maxDist } = foldParams(tip.x, tip.y, cX, cY);
+    const imgData = ctx.createImageData(W, H);
+    const d = imgData.data;
+    const src = pageTex.data;
+
+    for (let py = 0; py < H; py++) {
+      for (let px = 0; px < W; px++) {
+        const idx = (py * W + px) * 4;
+        const dist = dot(px - midX, py - midY, fn.x, fn.y);
+
+        if (dist > 0) {
+          const v = 22 + (px / W + py / H) * 6;
+          d[idx] = v; d[idx+1] = v; d[idx+2] = v + 3; d[idx+3] = 255;
+        } else {
+          const reflX = px - 2 * dist * fn.x;
+          const reflY = py - 2 * dist * fn.y;
+          if (reflX >= 0 && reflX < W && reflY >= 0 && reflY < H) {
+            const si = (Math.round(reflY) * W + Math.round(reflX)) * 4;
+            const t = Math.min(-dist / maxDist, 1);
+            const tint = 0.5 + 0.5 * t;
+            d[idx] = src[si] * tint; d[idx+1] = src[si+1] * tint; d[idx+2] = src[si+2] * tint; d[idx+3] = 255;
+          } else {
+            const si = (py * W + px) * 4;
+            d[idx] = src[si]; d[idx+1] = src[si+1]; d[idx+2] = src[si+2]; d[idx+3] = 255;
+          }
+        }
+      }
+    }
+    ctx.putImageData(imgData, 0, 0);
+
+    const perpX = -fn.y, perpY = fn.x;
+    ctx.strokeStyle = 'rgba(96,165,250,0.5)'; ctx.lineWidth = 1; ctx.setLineDash([4, 3]);
+    ctx.beginPath();
+    ctx.moveTo(midX + perpX * 400, midY + perpY * 400);
+    ctx.lineTo(midX - perpX * 400, midY - perpY * 400);
+    ctx.stroke(); ctx.setLineDash([]);
+  }
+
+  draw();
+  setupDrag(canvas, (pos) => { tip = pos; draw(); });
+})();
+
+// ═══════════════════════════════════════════════════════════════
+// STEP 3: Shadow & depth
+// ═══════════════════════════════════════════════════════════════
+(function step3() {
+  const canvas = document.getElementById('c3');
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  let tip = { x: W * 0.55, y: H * 0.5 };
+  const cX = W, cY = H;
+  const pageTex = buildPageTexture(W, H);
+
+  function draw() {
+    const { midX, midY, fn, maxDist } = foldParams(tip.x, tip.y, cX, cY);
+    const imgData = ctx.createImageData(W, H);
+    const d = imgData.data;
+    const src = pageTex.data;
+
+    for (let py = 0; py < H; py++) {
+      for (let px = 0; px < W; px++) {
+        const idx = (py * W + px) * 4;
+        const dist = dot(px - midX, py - midY, fn.x, fn.y);
+
+        if (dist > 0) {
+          const v = 22 + (px / W + py / H) * 6;
+          d[idx] = v; d[idx+1] = v; d[idx+2] = v + 3; d[idx+3] = 255;
+        } else {
+          const absDist = -dist;
+          const reflX = px - 2 * dist * fn.x;
+          const reflY = py - 2 * dist * fn.y;
+          if (reflX >= 0 && reflX < W && reflY >= 0 && reflY < H) {
+            const si = (Math.round(reflY) * W + Math.round(reflX)) * 4;
+            const t = Math.min(absDist / maxDist, 1);
+            const cylinder = 0.5 + 0.5 * Math.sin(t * PI * 0.5 + 0.2);
+            const crease = absDist < 15 ? 0.6 + 0.4 * (absDist / 15) : 1.0;
+            const sf = cylinder * crease;
+            d[idx] = src[si] * sf; d[idx+1] = src[si+1] * sf * 0.95; d[idx+2] = src[si+2] * sf * 0.85; d[idx+3] = 255;
+          } else {
+            const si = (py * W + px) * 4;
+            let shadow = 1.0;
+            if (absDist < 30) shadow = 0.7 + 0.3 * (absDist / 30);
+            d[idx] = src[si] * shadow; d[idx+1] = src[si+1] * shadow; d[idx+2] = src[si+2] * shadow; d[idx+3] = 255;
+          }
+        }
+      }
+    }
+    ctx.putImageData(imgData, 0, 0);
+
+    ctx.fillStyle = 'rgba(192,132,252,0.8)'; ctx.font = '11px monospace';
+    ctx.fillText('shadow = darkest (crease)', midX - (-fn.y) * 10 - 80, midY - fn.x * 10 - 10);
+  }
+
+  draw();
+  setupDrag(canvas, (pos) => { tip = pos; draw(); });
+})();
+
+// ═══════════════════════════════════════════════════════════════
+// STEP 4: Backface rendering
+// ═══════════════════════════════════════════════════════════════
+(function step4() {
+  const canvas = document.getElementById('c4');
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  let tip = { x: W * 0.5, y: H * 0.5 };
+  const cX = W, cY = H;
+  const pageTex = buildPageTexture(W, H);
+
+  function draw() {
+    const { midX, midY, fn, maxDist } = foldParams(tip.x, tip.y, cX, cY);
+    const imgData = ctx.createImageData(W, H);
+    const d = imgData.data;
+    const src = pageTex.data;
+
+    for (let py = 0; py < H; py++) {
+      for (let px = 0; px < W; px++) {
+        const idx = (py * W + px) * 4;
+        const dist = dot(px - midX, py - midY, fn.x, fn.y);
+
+        if (dist > 0) {
+          const v = 22 + (px / W + py / H) * 6;
+          d[idx] = v; d[idx+1] = v; d[idx+2] = v + 3; d[idx+3] = 255;
+        } else {
+          const reflX = px - 2 * dist * fn.x;
+          const reflY = py - 2 * dist * fn.y;
+          if (reflX >= 0 && reflX < W && reflY >= 0 && reflY < H) {
+            const si = (Math.round(reflY) * W + Math.round(reflX)) * 4;
+            d[idx] = src[si] * 0.45 + 85; d[idx+1] = src[si+1] * 0.45 + 80; d[idx+2] = src[si+2] * 0.45 + 95; d[idx+3] = 255;
+          } else {
+            const si = (py * W + px) * 4;
+            d[idx] = src[si]; d[idx+1] = src[si+1]; d[idx+2] = src[si+2]; d[idx+3] = 255;
+          }
+        }
+      }
+    }
+    ctx.putImageData(imgData, 0, 0);
+
+    ctx.fillStyle = 'rgba(248,113,113,0.9)'; ctx.font = 'bold 11px monospace';
+    const lx = midX - fn.x * maxDist * 0.3, ly = midY - fn.y * maxDist * 0.3;
+    ctx.fillText('backface (flap)', lx - 45, ly + 4);
+    ctx.fillStyle = 'rgba(94,234,212,0.9)';
+    const fx = midX - fn.x * maxDist * 1.5, fy = midY - fn.y * maxDist * 1.5;
+    ctx.fillText('front (flat page)', fx - 50, fy + 4);
+  }
+
+  draw();
+  setupDrag(canvas, (pos) => { tip = pos; draw(); });
+})();
+
+// ═══════════════════════════════════════════════════════════════
+// STEP 5: All combined
+// ═══════════════════════════════════════════════════════════════
+(function step5() {
+  const canvas = document.getElementById('c5');
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  let tip = { x: W * 0.55, y: H * 0.45 };
+  const cX = W, cY = H;
+  const pageTex = buildPageTexture(W, H);
+
+  function draw() {
+    const { midX, midY, fn, maxDist } = foldParams(tip.x, tip.y, cX, cY);
+    if (maxDist < 2) { ctx.putImageData(pageTex, 0, 0); return; }
+
+    const imgData = ctx.createImageData(W, H);
+    const d = imgData.data;
+    const src = pageTex.data;
+
+    for (let py = 0; py < H; py++) {
+      for (let px = 0; px < W; px++) {
+        const idx = (py * W + px) * 4;
+        const dist = dot(px - midX, py - midY, fn.x, fn.y);
+
+        if (dist > 0) {
+          const v = 22 + (px / W + py / H) * 6;
+          d[idx] = v; d[idx+1] = v; d[idx+2] = v + 3; d[idx+3] = 255;
+        } else {
+          const absDist = -dist;
+          const reflX = px - 2 * dist * fn.x;
+          const reflY = py - 2 * dist * fn.y;
+          if (reflX >= 0 && reflX < W && reflY >= 0 && reflY < H) {
+            const si = (Math.round(reflY) * W + Math.round(reflX)) * 4;
+            const t = Math.min(absDist / maxDist, 1);
+            const cylinder = 0.5 + 0.5 * Math.sin(t * PI * 0.5 + 0.2);
+            const crease = absDist < 15 ? 0.6 + 0.4 * (absDist / 15) : 1.0;
+            const sf = cylinder * crease;
+            d[idx] = (src[si] * 0.45 + 85) * sf; d[idx+1] = (src[si+1] * 0.45 + 80) * sf; d[idx+2] = (src[si+2] * 0.45 + 75) * sf; d[idx+3] = 255;
+          } else {
+            const si = (py * W + px) * 4;
+            let shadow = 1.0;
+            if (absDist < 30) shadow = 0.7 + 0.3 * (absDist / 30);
+            d[idx] = src[si] * shadow; d[idx+1] = src[si+1] * shadow; d[idx+2] = src[si+2] * shadow; d[idx+3] = 255;
+          }
+        }
+      }
+    }
+    ctx.putImageData(imgData, 0, 0);
+
+    const perpX = -fn.y, perpY = fn.x;
+    ctx.strokeStyle = 'rgba(255,255,255,0.15)'; ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(midX + perpX * 400, midY + perpY * 400);
+    ctx.lineTo(midX - perpX * 400, midY - perpY * 400);
+    ctx.stroke();
+  }
+
+  draw();
+  setupDrag(canvas, (pos) => { tip = pos; draw(); });
+})();
+</script>
+</body>
+</html>

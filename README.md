@@ -11,6 +11,7 @@ Each project is a self-contained `index.html` — no build step. Try them live v
 | 01 | [grid-focus](./grid-focus/) | Canvas, polar shapes, iterative overlap resolution | [Try it](https://juuc.github.io/ui-practice/grid-focus/) |
 | 02 | [card-swap](./card-swap/) | CSS 3D transforms, perspective, custom tween engine | [Try it](https://juuc.github.io/ui-practice/card-swap/) |
 | 03 | [electric-border](./electric-border/) | Canvas, octaved value noise, path displacement | [Try it](https://juuc.github.io/ui-practice/electric-border/) |
+| 04 | [page-curl](./page-curl/) | Canvas, fold-line reflection, per-pixel shading | [Try it](https://juuc.github.io/ui-practice/page-curl/) |
 
 ## Ad-hoc
 
